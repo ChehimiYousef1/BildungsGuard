@@ -1,0 +1,30 @@
+export const PART_DOCS = [
+  { de: 'Teilnehmervertrag', en: 'Participation contract', wde: 'Estella / LMS', wen: 'Estella / LMS', lde: 'Stammdaten erfasst', len: 'Master data captured', s: 'doc_ready' },
+  { de: 'Leihvertrag', en: 'Equipment loan agreement', wde: 'Estella / LMS', wen: 'Estella / LMS', lde: 'Stammdaten', len: 'Master data', s: 'doc_ready' },
+  { de: 'Datenschutzerklärung / -vereinbarung', en: 'Privacy declaration / agreement', wde: 'Estella / LMS', wen: 'Estella / LMS', lde: 'Name, Adresse', len: 'Name, address', s: 'doc_ready' },
+  { de: 'Einwilligung Bildrechte & Online-Zuschaltung', en: 'Consent: image rights & online participation', wde: 'Estella / LMS', wen: 'Estella / LMS', lde: 'Name, Adresse', len: 'Name, address', s: 'doc_ready' },
+  { de: 'Anwesenheit (individuell)', en: 'Attendance (per participant)', wde: 'Dozenten / LMS', wen: 'Trainers / LMS', lde: 'Per Login erfasst, zusammengeführt', len: 'Captured via login, merged', s: 'doc_review' },
+  { de: 'Nachweise Krankmeldung', en: 'Sick-leave certificates', wde: 'Teilnehmer', wen: 'Participant', lde: '—', len: '—', s: 'doc_missing' },
+  { de: 'Lebenslauf', en: 'CV / résumé', wde: 'Sales / Teilnehmer', wen: 'Sales / Participant', lde: 'Upload beim Onboarding', len: 'Upload at onboarding', s: 'doc_missing' },
+  { de: 'Zertifikat/-e', en: 'Certificate(s)', wde: 'Backoffice / LMS', wen: 'Back office / LMS', lde: 'Soll auto bei bestandenen Tests', len: 'Should auto-issue on passing', s: 'doc_manual', auto: true },
+  { de: 'Bewerbungstagebuch', en: 'Job-application diary', wde: 'Teilnehmer / LMS', wen: 'Participant / LMS', lde: 'Eintragfeld + Monats-Erinnerung', len: 'Entry field + monthly reminder', s: 'doc_partial', auto: true },
+  { de: 'Eignungsfeststellung', en: 'Aptitude assessment', wde: 'Sales', wen: 'Sales', lde: 'ggf. von Sales zu erstellen', len: 'To be created by Sales', s: 'doc_review' },
+  { de: 'Beratungsprotokoll', en: 'Counselling record', wde: 'Sales', wen: 'Sales', lde: '—', len: '—', s: 'doc_missing' },
+  { de: 'Teilnehmerbogen', en: 'Participant intake sheet', wde: 'Sales (HubSpot)', wen: 'Sales (HubSpot)', lde: 'In HubSpot nach Erstkontakt', len: 'In HubSpot after first contact', s: 'doc_missing' },
+  { de: 'Gesprächsprotokolle', en: 'Conversation logs', wde: 'Trainer / Coach', wen: 'Trainer / Coach', lde: '—', len: '—', s: 'doc_missing' },
+  { de: 'Lernzielvereinbarung', en: 'Learning-goal agreement', wde: 'Estella / LMS', wen: 'Estella / LMS', lde: 'Wird erfasst, ggf. überarbeiten', len: 'Captured, may need rework', s: 'doc_partial' },
+  { de: 'Nachweise individuelle Förderung', en: 'Individual-support records', wde: 'Coach', wen: 'Coach', lde: '—', len: '—', s: 'doc_missing' },
+  { de: 'Einzelcoaching: Verlaufsprotokoll', en: '1:1 coaching progress log', wde: 'Coach', wen: 'Coach', lde: '—', len: '—', s: 'doc_missing' },
+  { de: 'Nichtantritt / Abbruch', en: 'No-show / drop-out record', wde: 'Teilnehmer', wen: 'Participant', lde: 'Muss gesendet werden', len: 'Must be submitted', s: 'doc_missing' },
+  { de: 'Ergebnisbogen', en: 'Results sheet', wde: 'Estella / LMS', wen: 'Estella / LMS', lde: 'Sammelt ALLE Infos je Teilnehmer', len: 'Compiles ALL participant info', s: 'doc_missing', auto: true },
+  { de: 'Teilnehmerbefragung', en: 'Participant survey', wde: 'Teilnehmer / LMS', wen: 'Participant / LMS', lde: 'Nach jedem Kursteil', len: 'After each course part', s: 'doc_review' },
+  { de: 'Tests / Surveys', en: 'Tests / surveys', wde: 'Haritha / LMS', wen: 'Haritha / LMS', lde: 'Nach jedem Thema, sammelt Infos', len: 'After each topic, gathers data', s: 'doc_review', auto: true },
+  { de: 'Evaluierung', en: 'Evaluation (grades & pass rate)', wde: 'Haritha / LMS', wen: 'Haritha / LMS', lde: 'Noten & Bestehensquote aus Tests', len: 'Grades & pass rate from tests', s: 'doc_review', auto: true },
+];
+
+export const COURSE_DOCS = [
+  { de: 'Teilnehmer-Verbleib', en: 'Participant outcome', wde: 'Estella / LMS', wen: 'Estella / LMS', lde: 'Verbleib erfassen', len: 'Track outcome', s: 'doc_review' },
+  { de: 'Verbleib nach 6 Monaten', en: 'Outcome after 6 months', wde: 'Estella / LMS', wen: 'Estella / LMS', lde: '6-Monats-Befragung (→ Absolventen)', len: '6-month survey (→ Alumni)', s: 'doc_review' },
+  { de: 'Unterrichtsdokumentation', en: 'Teaching documentation', wde: 'Trainer / LMS', wen: 'Trainer / LMS', lde: 'Doku je Unterricht', len: 'Per-session documentation', s: 'doc_review' },
+  { de: 'Maßnahmenbezogene Evaluierung', en: 'Bootcamp-level evaluation', wde: 'Estella / LMS', wen: 'Estella / LMS', lde: 'Aggregierte Auswertung', len: 'Aggregated evaluation', s: 'doc_review' },
+];

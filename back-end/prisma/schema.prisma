@@ -1,0 +1,567 @@
+// All in One — AZAV LMS & QM
+// Multi-tenant schema. Every business table carries tenantId for isolation.
+// Postgres Row-Level Security is applied at the DB layer (see migrations);
+// application code additionally scopes every query by tenantId.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  admin
+  trainer
+  participant
+}
+
+model Tenant {
+  id             String   @id @default(cuid())
+  name           String
+  logo           String?
+  accent         String?  @default("iris")
+  azavValidUntil String?
+  certifier      String?
+  nextAudit      String?
+  enabledModules String[] @default([])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model User {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  username         String?   @unique
+  password         String
+  name             String?
+  role             Role      @default(participant)
+  tenantId         String
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([tenantId])
+}
+
+model Participant {
+  id                String              @id @default(cuid())
+  name              String
+  measureId         String?
+  status            String              @default("enrolled")
+  fileCompleteness  Int                 @default(0)
+  contact           String?
+  phone             String?
+  fundingType       String?
+  voucher           String?
+  agency            String?
+  voucherValidUntil String?
+  tenantId          String
+  attendances       Attendance[]
+  equipmentLoans EquipmentLoan[]
+  documents         Document[]
+  records           ParticipantRecord[]
+  diaryEntries      DiaryEntry[]
+  placements        PlacementFollowUp[]
+  surveys           Survey[]
+  evaluations       Evaluation[]
+  measure           Measure?            @relation(fields: [measureId], references: [id])
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([tenantId])
+}
+
+model Measure {
+  id                String               @id @default(cuid())
+  name              String
+  number            String?
+  azav              String?
+  status            String               @default("planned")
+  capacity          Int                  @default(0)
+  enrolled          Int                  @default(0)
+  ueHours           Int                  @default(0)
+  mode              String?
+  category          String?
+  startDate         String?
+  endDate           String?
+  tenantId          String
+  courses           Course[]
+  changes           MeasureChange[]
+  participants      Participant[]
+  modules           MeasureModule[]
+  courseEvaluations CourseEvaluation[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([tenantId])
+}
+
+model MeasureModule {
+  id        String   @id @default(cuid())
+  measureId String
+  measure   Measure  @relation(fields: [measureId], references: [id], onDelete: Cascade)
+  title     String
+  ueHours   Int      @default(0)
+  status    String   @default("planned")
+  order     Int      @default(0)
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([measureId])
+}
+
+model Trainer {
+  id                  String   @id @default(cuid())
+  name                String
+  qualificationArea   String?
+  qualificationStatus String   @default("incomplete")
+  expiry              String?
+  tenantId            String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model Course {
+  id                String             @id @default(cuid())
+  name              String
+  meetingUrl        String?
+  measureId         String?
+  measure           Measure?           @relation(fields: [measureId], references: [id])
+  tenantId          String
+  sessions          Session[]
+  records           CourseRecord[]
+  courseEvaluations CourseEvaluation[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([tenantId])
+}
+
+model Session {
+  id          String         @id @default(cuid())
+  courseId    String
+  course      Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  order       Int            @default(0)
+  title       String
+  time        String?
+  room        String?
+  meetingUrl  String?
+  videoRef    String?
+  tenantId    String
+  attendances Attendance[]
+  videos      SessionVideo[]
+  createdAt   DateTime       @default(now())
+
+  @@index([tenantId])
+  @@index([courseId])
+}
+
+model SessionVideo {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  title     String?
+  videoRef  String
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([sessionId])
+}
+
+model Attendance {
+  id            String      @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  sessionId     String
+  session       Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  present       Boolean     @default(false)
+  status        String      @default("absent")
+  capturedInApp Boolean     @default(true)
+  tenantId      String
+  createdAt     DateTime    @default(now())
+
+  @@unique([participantId, sessionId])
+  @@index([tenantId])
+}
+
+model Document {
+  id            String       @id @default(cuid())
+  type          String
+  responsible   String?
+  status        String       @default("doc_missing")
+  fileRef       String?
+  participantId String?
+  participant   Participant? @relation(fields: [participantId], references: [id])
+  measureId     String?
+  tenantId      String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([tenantId])
+}
+
+model Capa {
+  id          String   @id @default(cuid())
+  date        String?
+  source      String?
+  category    String?
+  description String
+  owner       String?
+  dueDate     String?
+  status      String   @default("open")
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  groupId   String
+  name      String
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model QmDoc {
+  id        String   @id @default(cuid())
+  type      String   @default("process")
+  title     String
+  content   String?
+  version   String?
+  author    String?
+  owner     String?
+  status    String   @default("doc_ready")
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model AuditRecord {
+  id        String   @id @default(cuid())
+  readiness Int?
+  sample    Json?
+  note      String?
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String?
+  entityId  String?
+  userId    String?
+  data      Json?
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Alumni {
+  id          String   @id @default(cuid())
+  name        String
+  measure     String?
+  outcome     String   @default("unknown")
+  employer    String?
+  followUp6   Boolean  @default(false)
+  consent     Boolean  @default(false)
+  graduatedAt String?
+  status0     String?
+  status6     String?
+  employer6   String?
+  followUp0At String?
+  followUp6At String?
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  email       String?
+
+  @@index([tenantId])
+}
+
+model Campaign {
+  id        String   @id @default(cuid())
+  name      String
+  audience  String?
+  channel   String?
+  reach     Int      @default(0)
+  opens     Int      @default(0)
+  trackId   String?
+  openRate  String?
+  status    String   @default("draftC")
+  sentAt    String?
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model Channel {
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  connected Boolean  @default(false)
+  reach     Int      @default(0)
+  tenantId  String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model Automation {
+  id        String   @id @default(cuid())
+  key       String
+  enabled   Boolean  @default(true)
+  config    Json?
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+}
+
+model ExternalAudit {
+  id        String   @id @default(cuid())
+  date      String?
+  body      String?
+  type      String?
+  findings  String?
+  status    String   @default("open")
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model MeasureChange {
+  id          String   @id @default(cuid())
+  measureId   String
+  measure     Measure  @relation(fields: [measureId], references: [id], onDelete: Cascade)
+  date        String?
+  reason      String
+  responsible String?
+  tenantId    String
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([measureId])
+}
+
+model ParticipantRecord {
+  id            String      @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  type          String      // APTITUDE | COUNSELING | INTAKE_FORM | MEETING_MINUTES | LEARNING_GOALS | SUPPORT_PROOF | COACHING_PROGRESS | RESULTS
+  title         String?
+  content       String?
+  recordDate    String?
+  author        String?
+  signed        Boolean     @default(false)
+  tenantId      String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@index([participantId])
+}
+
+model DiaryEntry {
+  id            String      @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  entryDate     String?
+  company       String?
+  position      String?
+  method        String?
+  status        String      @default("applied") // applied | interview | rejected | offer
+  notes         String?
+  tenantId      String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@index([participantId])
+}
+
+model Survey {
+  id            String      @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  type          String      @default("satisfaction") // satisfaction | test | feedback
+  title         String?
+  rating        Int?
+  maxRating     Int?        @default(5)
+  score         String?
+  notes         String?
+  surveyDate    String?
+  tenantId      String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@index([participantId])
+}
+
+model Evaluation {
+  id             String       @id @default(cuid())
+  scope          String       @default("participant") // participant | course
+  participantId  String?
+  participant    Participant? @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  courseId       String?
+  title          String?
+  rating         Int?
+  strengths      String?
+  weaknesses     String?
+  recommendation String?
+  evalDate       String?
+  author         String?
+  tenantId       String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([tenantId])
+  @@index([participantId])
+  @@index([courseId])
+}
+
+model CourseRecord {
+  id         String   @id @default(cuid())
+  courseId   String
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  type       String   @default("TEACHING_LOG")
+  recordDate String?
+  topic      String?
+  trainer    String?
+  hours      Int?
+  notes      String?
+  tenantId   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([courseId])
+}
+
+model TrainerQualification {
+  id          String   @id @default(cuid())
+  trainerName String?
+  userId      String?
+  title       String
+  type        String   @default("qualification")
+  validUntil  String?
+  approvedFor String?
+  fileRef     String?
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model LessonProgress {
+  id            String   @id @default(cuid())
+  participantId String
+  sessionId     String
+  courseId      String?
+  completed     Boolean  @default(true)
+  completedAt   String?
+  tenantId      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([participantId, sessionId])
+  @@index([tenantId])
+  @@index([participantId])
+}
+
+model PlacementFollowUp {
+  id            String      @id @default(cuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  month         Int         @default(0)
+  outcome       String?
+  employer      String?
+  jobTitle      String?
+  contractType  String?
+  followUpDate  String?
+  notes         String?
+  consentGiven  Boolean     @default(false)
+  tenantId      String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@index([participantId])
+}
+
+// #25 — Measure-related evaluation (course aggregate)
+model CourseEvaluation {
+  id               String   @id @default(cuid())
+  courseId         String?
+  course           Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  measureId        String?
+  measure          Measure? @relation(fields: [measureId], references: [id], onDelete: SetNull)
+  period           String?
+  overallRating    Int?
+  contentRating    Int?
+  trainerRating    Int?
+  participantCount Int      @default(0)
+  strengths        String?
+  improvements     String?
+  notes            String?
+  tenantId         String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([courseId])
+  @@index([measureId])
+}
+
+
+
+
+model EquipmentLoan {
+  id                  String      @id @default(cuid())
+  participantId       String
+  participant         Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  deviceName          String
+  serialNumber        String?
+  brand               String?
+  condition           String?     @default("good")
+  loanDate            String?
+  returnDate          String?
+  returnedDate        String?
+  returned            Boolean     @default(false)
+  notes               String?
+  signedByParticipant Boolean     @default(false)
+  fileRef             String?
+  tenantId            String
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@index([tenantId])
+  @@index([participantId])
+}

@@ -1,0 +1,7 @@
+import { LayoutDashboard, BookOpen, ClipboardCheck, Users, GraduationCap, ShieldCheck, FolderCheck, Library, FileCheck2, CalendarClock, Award, Bell, ChevronRight, Play, CheckCircle2, Circle, TrendingUp, Plus, AlertTriangle, Download, X, Check, ArrowLeft, Building2, BadgeCheck, FileText, Sparkles, Send, Globe, Zap, Wand2, ListTodo, Compass, ArrowRight, UserCheck, ChevronUp, ChevronDown, Settings, LogOut, Lock, Trash2, Megaphone, Mail, MessageSquare, Smartphone, Linkedin, Contact, Eye, Tags, ClipboardList } from 'lucide-react';
+
+export const NAV = {
+  verwaltung: [['home', 'n_overview', LayoutDashboard], ['participants', 'n_part', Users], ['measures', 'n_meas', BookOpen], ['trainers', 'n_train', GraduationCap], ['attendance', 'n_att', ClipboardCheck], ['qm', 'n_qm', ShieldCheck], ['audit', 'n_audit', FolderCheck], ['content', 'n_content', Library], ['docs', 'n_docs', FileText], ['alumni', 'n_alumni', Contact], ['comms', 'n_comms', Megaphone], ['categories', 'n_categories', Tags], ['automations', 'n_autom', Zap], ['settings', 'n_settings', Settings]],
+  dozent: [['home', 'n_mysess', CalendarClock], ['attendance', 'n_takeatt', ClipboardCheck], ['assignment', 'n_assignment', ClipboardList], ['grade', 'n_grade', Award], ['file', 'n_myfile', FileCheck2], ['settings', 'n_settings', Settings]],
+  teilnehmer: [['home', 'n_sched', CalendarClock], ['learn', 'n_learn', BookOpen], ['progress', 'n_prog', Award], ['docs', 'n_mydocs', FolderCheck], ['certs', 'n_certs', FileCheck2], ['settings', 'n_settings', Settings]],
+};

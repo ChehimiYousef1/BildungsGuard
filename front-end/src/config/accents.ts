@@ -1,0 +1,31 @@
+export const ACCENTS = [
+  // ===== الموجودة =====
+  { id: 'iris',      a1: '#6D5DF6', a2: '#3B82F6' },
+  { id: 'emerald',   a1: '#0FB6A0', a2: '#3B82F6' },
+  { id: 'violet',    a1: '#8B5CF6', a2: '#6D5DF6' },
+  { id: 'sunset',    a1: '#F59E0B', a2: '#F4475F' },
+  { id: 'ocean',     a1: '#3B82F6', a2: '#0FB6A0' },
+  { id: 'graphite',  a1: '#475569', a2: '#1A1F37' },
+
+  // ===== جديدة =====
+  { id: 'rose',      a1: '#F43F5E', a2: '#FB7185' },
+  { id: 'amber',     a1: '#F59E0B', a2: '#FBBF24' },
+  { id: 'lime',      a1: '#84CC16', a2: '#22C55E' },
+  { id: 'sky',       a1: '#0EA5E9', a2: '#38BDF8' },
+  { id: 'fuchsia',   a1: '#D946EF', a2: '#A855F7' },
+  { id: 'crimson',   a1: '#DC2626', a2: '#F97316' },
+  { id: 'mint',      a1: '#10B981', a2: '#6EE7B7' },
+  { id: 'indigo',    a1: '#4F46E5', a2: '#818CF8' },
+  { id: 'coral',     a1: '#FF6B6B', a2: '#FFA500' },
+  { id: 'teal',      a1: '#0D9488', a2: '#0891B2' },
+  { id: 'gold',      a1: '#F59E0B', a2: '#92400E' },
+  { id: 'pink',      a1: '#EC4899', a2: '#F43F5E' },
+  { id: 'aurora',    a1: '#6EE7B7', a2: '#3B82F6' },
+  { id: 'midnight',  a1: '#1E1B4B', a2: '#3730A3' },
+  { id: 'candy',     a1: '#F472B6', a2: '#A78BFA' },
+  { id: 'forest',    a1: '#166534', a2: '#15803D' },
+  { id: 'lava',      a1: '#991B1B', a2: '#F97316' },
+  { id: 'arctic',    a1: '#BAE6FD', a2: '#67E8F9' },
+  { id: 'bronze',    a1: '#92400E', a2: '#D97706' },
+  { id: 'neon',      a1: '#A3E635', a2: '#22D3EE' },
+];
