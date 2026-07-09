@@ -21,7 +21,10 @@ export class CampaignsService {
   }
 
   findAll(tenantId: string) {
-    return this.prisma.client.campaign.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
+    return this.prisma.client.campaign.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async findOne(tenantId: string, id: string) {
@@ -40,106 +43,190 @@ export class CampaignsService {
     return this.prisma.client.campaign.delete({ where: { id } });
   }
 
-  // ===== Channels =====
-  async listChannels(tenantId: string) {
-    const rows = await this.prisma.client.channel.findMany({ where: { tenantId }, orderBy: { createdAt: 'asc' } });
-    if (rows.length === 0) {
-      const defaults = [
-        { name: 'Email', type: 'email', connected: true, reach: 0 },
-        { name: 'SMS', type: 'sms', connected: false, reach: 0 },
-        { name: 'LinkedIn', type: 'linkedin', connected: false, reach: 0 },
-        { name: 'WhatsApp', type: 'whatsapp', connected: false, reach: 0 },
-      ];
-      await this.prisma.client.channel.createMany({ data: defaults.map((d) => ({ ...d, tenantId })) });
-      return this.prisma.client.channel.findMany({ where: { tenantId }, orderBy: { createdAt: 'asc' } });
+  // ===== FILTER RECIPIENTS =====
+  async filterRecipients(
+    tenantId: string,
+    opts: {
+      audience?: string;
+      measureId?: string;
+      stage?: string;
     }
-    return rows;
-  }
+  ): Promise<{ email: string; name: string }[]> {
+    const { audience = 'seg_active', measureId, stage } = opts;
+    const now = new Date();
 
-  async toggleChannel(tenantId: string, id: string, connected: boolean) {
-    const ch = await this.prisma.client.channel.findFirst({ where: { id, tenantId } });
-    if (!ch) throw new NotFoundException('Channel not found');
-    return this.prisma.client.channel.update({ where: { id }, data: { connected } });
-  }
+    // Alumni stages
+    const alumniStages = ['graduated_1m', 'graduated_3m', 'graduated_6m'];
+    const isAlumniStage = stage && alumniStages.includes(stage);
 
-  // جمع المستلمين (إيميل أو هاتف) حسب الجمهور
-  private async audience(tenantId: string, audience: string) {
-    const parts = await this.prisma.client.participant.findMany({ where: { tenantId } });
-    let list = parts;
-    if (audience === 'seg_active') {
-      list = parts.filter((p: any) => p.status === 'enrolled' || p.status === 'active');
+    // Participant stages
+    const participantStages = ['onboarding', 'in_progress', 'final_exam'];
+    const isParticipantStage = stage && participantStages.includes(stage);
+
+    let results: { email: string; name: string }[] = [];
+
+    // ===== ALUMNI =====
+    if (
+      audience === 'seg_all_alumni' ||
+      audience === 'seg_alumni_emp' ||
+      audience === 'seg_alumni_seek' ||
+      isAlumniStage
+    ) {
+      const alumni = await this.prisma.client.alumni.findMany({
+        where: {
+          tenantId,
+          ...(measureId ? { measureId } : {}),
+          ...(audience === 'seg_alumni_emp' ? { outcome: 'employed' } : {}),
+          ...(audience === 'seg_alumni_seek' ? { outcome: 'seeking' } : {}),
+        },
+      });
+
+      let filtered = alumni;
+
+      // Filter by graduation stage
+      if (isAlumniStage && stage) {
+        filtered = alumni.filter((a: any) => {
+          if (!a.graduationDate && !a.graduatedAt) return false;
+          const gradDate = new Date(a.graduationDate ?? a.graduatedAt);
+          const diffDays = Math.floor((now.getTime() - gradDate.getTime()) / 86400000);
+          if (stage === 'graduated_1m') return diffDays <= 30;
+          if (stage === 'graduated_3m') return diffDays <= 90;
+          if (stage === 'graduated_6m') return diffDays <= 180;
+          return true;
+        });
+      }
+
+      results = filtered
+        .filter((a: any) => a.contact || a.email)
+        .map((a: any) => ({ email: a.contact ?? a.email ?? '', name: a.name ?? '' }));
     }
-    return list;
+
+    // ===== PARTICIPANTS =====
+    if (
+      audience === 'seg_active' ||
+      isParticipantStage
+    ) {
+      const where: any = {
+        tenantId,
+        status: { in: ['active', 'enrolled'] },
+        ...(measureId ? { measureId } : {}),
+      };
+
+      const parts = await this.prisma.client.participant.findMany({ where });
+
+      let filtered = parts;
+
+      // Filter by stage
+      if (isParticipantStage && stage) {
+        filtered = parts.filter((p: any) => {
+          const pct = p.fileCompleteness ?? 0;
+          if (stage === 'onboarding')  return pct < 25;
+          if (stage === 'in_progress') return pct >= 25 && pct < 75;
+          if (stage === 'final_exam')  return pct >= 75;
+          return true;
+        });
+      }
+
+      const partResults = filtered
+        .filter((p: any) => p.contact || p.email)
+        .map((p: any) => ({ email: p.contact ?? p.email ?? '', name: p.name ?? '' }));
+
+      results = [...results, ...partResults];
+    }
+
+    // Remove duplicates and empty emails
+    const seen = new Set<string>();
+    return results.filter((r) => {
+      if (!r.email || seen.has(r.email)) return false;
+      seen.add(r.email);
+      return true;
+    });
   }
 
-  // ===== إرسال حملة فعلية =====
+  // ===== PREVIEW RECIPIENTS (new endpoint) =====
+  async previewRecipients(
+    tenantId: string,
+    opts: { audience?: string; measureId?: string; stage?: string }
+  ) {
+    const recipients = await this.filterRecipients(tenantId, opts);
+    return { total: recipients.length, recipients };
+  }
+
+  // ===== SEND CAMPAIGN =====
   async sendCampaign(
     tenantId: string,
-    dto: { name: string; audience: string; channel: string; message?: string },
+    dto: {
+      name: string;
+      audience: string;
+      channel: string;
+      message?: string;
+      measureId?: string;
+      stage?: string;
+    },
   ) {
-    const { name, audience, channel, message } = dto;
-    const recipients = await this.audience(tenantId, audience);
+    const trackId = randomBytes(8).toString('hex');
 
-    // --- Email ---
-    if (channel === 'email') {
-      const trackId = randomBytes(8).toString('hex');
-      const appUrl = this.config.get<string>('appUrl') ?? 'http://localhost:3000';
-      const pixel = `<img src="${appUrl}/api/v1/campaigns/track/${trackId}.png" width="1" height="1" style="display:none" alt="">`;
-      const html = `<div style="font-family:sans-serif;font-size:14px;line-height:1.6">
-        <h2 style="color:#4E2BCD">${name}</h2>
-        <p>${(message || '').replace(/\n/g, '<br>')}</p>
-        <hr><p style="color:#888;font-size:12px">All in One · AZAV LMS</p></div>${pixel}`;
-
-      const emails = recipients.map((p: any) => (p.contact || '').trim()).filter((c: string) => c.includes('@'));
-      let sent = 0;
-      for (const to of emails) {
-        try { await this.mail.send(to, name, html); sent++; } catch { /* skip */ }
-      }
-      const campaign = await this.prisma.client.campaign.create({
-        data: { name, audience, channel, reach: sent, opens: 0, trackId, openRate: sent > 0 ? '0%' : null, status: sent > 0 ? 'sent' : 'draftC', sentAt: new Date().toLocaleDateString('de-DE'), tenantId },
-      });
-      return { ...campaign, sent, totalRecipients: emails.length };
-    }
-
-    // --- SMS / WhatsApp (عبر Twilio) ---
-    if (channel === 'sms' || channel === 'whatsapp') {
-      const phones = recipients.map((p: any) => (p.phone || '').trim()).filter((p: string) => p.length > 5);
-      const text = `${name}\n\n${message || ''}`;
-
-      // لو Twilio غير مفعّل → سجّل كمسوّدة بصدق
-      if (!this.twilio.enabled) {
-        const campaign = await this.prisma.client.campaign.create({
-          data: { name, audience, channel, reach: 0, status: 'scheduled', tenantId },
-        });
-        return { ...campaign, sent: 0, totalRecipients: phones.length, note: 'Twilio not configured — saved only' };
-      }
-
-      let sent = 0;
-      for (const to of phones) {
-        const ok = channel === 'sms' ? await this.twilio.sendSms(to, text) : await this.twilio.sendWhatsapp(to, text);
-        if (ok) sent++;
-      }
-      const campaign = await this.prisma.client.campaign.create({
-        data: { name, audience, channel, reach: sent, status: sent > 0 ? 'sent' : 'draftC', sentAt: new Date().toLocaleDateString('de-DE'), tenantId },
-      });
-      return { ...campaign, sent, totalRecipients: phones.length };
-    }
-
-    // --- LinkedIn أو غيره: تسجيل فقط ---
-    const campaign = await this.prisma.client.campaign.create({
-      data: { name, audience, channel, status: 'scheduled', tenantId },
+    // Get filtered recipients
+    const recipients = await this.filterRecipients(tenantId, {
+      audience: dto.audience,
+      measureId: dto.measureId,
+      stage: dto.stage,
     });
-    return { ...campaign, sent: 0, note: 'channel requires external integration' };
+
+    let sent = 0;
+
+    if (dto.channel === 'email' && recipients.length > 0) {
+      const tenant = await this.prisma.client.tenant.findFirst({ where: { id: tenantId } });
+      const trackingPixel = `<img src="${this.config.get('appUrl') ?? 'http://localhost:3000'}/api/v1/campaigns/track/${trackId}.png" width="1" height="1" />`;
+
+      for (const r of recipients) {
+        try {
+          await this.mail.send(
+            r.email,
+            dto.name,
+            `<p>Hallo ${r.name},</p><p>${(dto.message ?? '').replace(/\n/g, '<br>')}</p>${trackingPixel}`,
+          );
+          sent++;
+        } catch (e) {
+          console.error(`Failed to send to ${r.email}:`, e);
+        }
+      }
+    }
+
+    // Save campaign record
+    const campaign = await this.prisma.client.campaign.create({
+      data: {
+        tenantId,
+        name: dto.name,
+        audience: dto.audience,
+        channel: dto.channel,
+        reach: recipients.length,
+        status: sent > 0 ? 'sent' : 'saved',
+        trackId,
+      },
+    });
+
+    return {
+      ...campaign,
+      sent,
+      totalRecipients: recipients.length,
+    };
   }
 
-  // ===== تسجيل فتح الإيميل =====
-  async trackOpen(trackId: string) {
-    const campaign = await this.prisma.client.campaign.findFirst({ where: { trackId } });
-    if (campaign && campaign.reach > 0) {
-      const opens = campaign.opens + 1;
-      const rate = Math.min(100, Math.round((opens / campaign.reach) * 100));
-      await this.prisma.client.campaign.update({ where: { id: campaign.id }, data: { opens, openRate: `${rate}%` } });
-    }
-    return Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  // ===== TRACKING =====
+  async track(trackId: string) {
+    await this.prisma.client.campaign.updateMany({
+      where: { trackId },
+      data: { openRate: '1 open' },
+    });
+  }
+
+  // ===== CHANNELS =====
+  findChannels(tenantId: string) {
+    return this.prisma.client.channel.findMany({ where: { tenantId } }).catch(() => []);
+  }
+
+  updateChannel(tenantId: string, id: string, dto: { connected: boolean }) {
+    return this.prisma.client.channel.update({ where: { id }, data: dto }).catch(() => ({}));
   }
 }

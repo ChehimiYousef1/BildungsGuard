@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTrainersDto } from './dto/create-trainers.dto';
 import { UpdateTrainersDto } from './dto/update-trainers.dto';
@@ -11,8 +11,26 @@ export class TrainersService {
     return this.prisma.client.trainer.create({ data: { ...dto, tenantId } });
   }
 
-  findAll(tenantId: string) {
-    return this.prisma.client.trainer.findMany({ where: { tenantId }, orderBy: { createdAt: 'desc' } });
+  async findAll(tenantId: string) {
+    const trainers = await this.prisma.client.trainer.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const enriched = await Promise.all(
+      trainers.map(async (tr: any) => {
+        if (tr.email) return tr;
+        try {
+          const user = await this.prisma.client.user.findFirst({
+            where: { tenantId, name: tr.name, role: 'trainer' },
+            select: { email: true },
+          });
+          return { ...tr, email: user?.email ?? '' };
+        } catch { return tr; }
+      })
+    );
+
+    return enriched;
   }
 
   async findOne(tenantId: string, id: string) {

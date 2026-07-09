@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { CampaignsService } from './campaigns.service';
 import { CreateCampaignsDto } from './dto/create-campaigns.dto';
@@ -18,47 +18,80 @@ export class CampaignsController {
     return this.service.create(tenantId, dto);
   }
 
-  // إرسال حملة فعلية
+  // ===== SEND CAMPAIGN =====
   @Post('send')
   @Roles(AppRole.Admin)
-  send(@CurrentTenant() tenantId: string, @Body() dto: { name: string; audience: string; channel: string; message?: string }) {
+  send(
+    @CurrentTenant() tenantId: string,
+    @Body() dto: {
+      name: string;
+      audience: string;
+      channel: string;
+      message?: string;
+      measureId?: string;
+      stage?: string;
+    },
+  ) {
     return this.service.sendCampaign(tenantId, dto);
   }
 
-  // بكسل تتبّع الفتح (عام — بريد المستلم يطلبه بلا token)
+  // ===== PREVIEW RECIPIENTS =====
+  @Post('preview-recipients')
+  @Roles(AppRole.Admin)
+  previewRecipients(
+    @CurrentTenant() tenantId: string,
+    @Body() dto: { audience?: string; measureId?: string; stage?: string },
+  ) {
+    return this.service.previewRecipients(tenantId, dto);
+  }
+
+  // ===== TRACKING PIXEL =====
   @Public()
   @Get('track/:trackId.png')
   async track(@Param('trackId') trackId: string, @Res() res: Response) {
-    const png = await this.service.trackOpen(trackId);
-    res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'no-store, no-cache, must-revalidate, private', Pragma: 'no-cache' });
-    res.end(png);
+    await this.service.track(trackId);
+    const pixel = Buffer.from(
+      'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+      'base64',
+    );
+    res.set('Content-Type', 'image/gif').send(pixel);
   }
 
   @Get()
+  @Roles(AppRole.Admin)
   findAll(@CurrentTenant() tenantId: string) {
     return this.service.findAll(tenantId);
   }
 
-  // ===== Channels (قبل :id) =====
   @Get('channels')
-  listChannels(@CurrentTenant() tenantId: string) {
-    return this.service.listChannels(tenantId);
+  @Roles(AppRole.Admin)
+  findChannels(@CurrentTenant() tenantId: string) {
+    return this.service.findChannels(tenantId);
   }
 
   @Patch('channels/:id')
   @Roles(AppRole.Admin)
-  toggleChannel(@CurrentTenant() tenantId: string, @Param('id') id: string, @Body('connected') connected: boolean) {
-    return this.service.toggleChannel(tenantId, id, connected);
+  updateChannel(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: { connected: boolean },
+  ) {
+    return this.service.updateChannel(tenantId, id, dto);
   }
 
   @Get(':id')
+  @Roles(AppRole.Admin)
   findOne(@CurrentTenant() tenantId: string, @Param('id') id: string) {
     return this.service.findOne(tenantId, id);
   }
 
   @Patch(':id')
   @Roles(AppRole.Admin)
-  update(@CurrentTenant() tenantId: string, @Param('id') id: string, @Body() dto: UpdateCampaignsDto) {
+  update(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateCampaignsDto,
+  ) {
     return this.service.update(tenantId, id, dto);
   }
 

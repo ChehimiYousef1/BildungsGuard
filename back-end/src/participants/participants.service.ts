@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateParticipantsDto } from './dto/create-participants.dto';
@@ -6,10 +7,13 @@ import { UpdateParticipantsDto } from './dto/update-participants.dto';
 
 @Injectable()
 export class ParticipantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mail: MailService,
+  ) {}
 
   async create(tenantId: string, dto: CreateParticipantsDto) {
-    const { email, password, ...rest } = dto;
+    const { email, password, sendWelcomeEmail, ...rest } = dto;
 
     const participant = await this.prisma.client.participant.create({
       data: {
@@ -34,6 +38,29 @@ export class ParticipantsService {
       });
     }
 
+    // Send welcome email with credentials
+    if (email && password && dto.sendWelcomeEmail !== false) {
+      const name = rest.name || 'Teilnehmer';
+      try {
+        await this.mail.send(
+          email,
+          'Ihre Zugangsdaten / Your login credentials',
+          `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px">
+            <h2 style="color:#6D5DF6">Willkommen / Welcome, ${name}!</h2>
+            <p>Hier sind Ihre Zugangsdaten f�r das Teilnehmerportal:</p>
+            <p>Here are your login credentials for the participant portal:</p>
+            <div style="background:#f8f8f8;border-radius:8px;padding:16px;margin:16px 0">
+              <p><strong>E-Mail:</strong> ${email}</p>
+              <p><strong>Passwort / Password:</strong> ${password}</p>
+            </div>
+            <p>Portal: <a href="http://localhost:5173">http://localhost:5173</a></p>
+            <p style="color:#888;font-size:12px">Bitte �ndern Sie Ihr Passwort nach der ersten Anmeldung.<br>Please change your password after first login.</p>
+          </div>`
+        );
+      } catch (e) {
+        console.error('Welcome email failed:', e);
+      }
+    }
     return participant;
   }
 

@@ -1,4 +1,4 @@
-// All in One — AZAV LMS & QM
+// All in One Ã¢â‚¬â€ AZAV LMS & QM
 // Multi-tenant schema. Every business table carries tenantId for isolation.
 // Postgres Row-Level Security is applied at the DB layer (see migrations);
 // application code additionally scopes every query by tenantId.
@@ -53,6 +53,8 @@ model Participant {
   name              String
   measureId         String?
   status            String              @default("enrolled")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   fileCompleteness  Int                 @default(0)
   contact           String?
   phone             String?
@@ -82,6 +84,8 @@ model Measure {
   number            String?
   azav              String?
   status            String               @default("planned")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   capacity          Int                  @default(0)
   enrolled          Int                  @default(0)
   ueHours           Int                  @default(0)
@@ -108,6 +112,8 @@ model MeasureModule {
   title     String
   ueHours   Int      @default(0)
   status    String   @default("planned")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   order     Int      @default(0)
   tenantId  String
   createdAt DateTime @default(now())
@@ -120,7 +126,10 @@ model Trainer {
   id                  String   @id @default(cuid())
   name                String
   qualificationArea   String?
+  email               String?
   qualificationStatus String   @default("incomplete")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   expiry              String?
   tenantId            String
   createdAt           DateTime @default(now())
@@ -185,6 +194,8 @@ model Attendance {
   session       Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   present       Boolean     @default(false)
   status        String      @default("absent")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   capturedInApp Boolean     @default(true)
   tenantId      String
   createdAt     DateTime    @default(now())
@@ -198,6 +209,8 @@ model Document {
   type          String
   responsible   String?
   status        String       @default("doc_missing")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   fileRef       String?
   participantId String?
   participant   Participant? @relation(fields: [participantId], references: [id])
@@ -218,6 +231,8 @@ model Capa {
   owner       String?
   dueDate     String?
   status      String   @default("open")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   tenantId    String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -244,6 +259,8 @@ model QmDoc {
   author    String?
   owner     String?
   status    String   @default("doc_ready")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   tenantId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -307,6 +324,8 @@ model Campaign {
   trackId   String?
   openRate  String?
   status    String   @default("draftC")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   sentAt    String?
   tenantId  String
   createdAt DateTime @default(now())
@@ -347,6 +366,8 @@ model ExternalAudit {
   type      String?
   findings  String?
   status    String   @default("open")
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   tenantId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -395,6 +416,8 @@ model DiaryEntry {
   position      String?
   method        String?
   status        String      @default("applied") // applied | interview | rejected | offer
+  stage          String?  @default("onboarding")
+  graduationDate DateTime?
   notes         String?
   tenantId      String
   createdAt     DateTime    @default(now())
@@ -516,7 +539,7 @@ model PlacementFollowUp {
   @@index([participantId])
 }
 
-// #25 — Measure-related evaluation (course aggregate)
+// #25 Ã¢â‚¬â€ Measure-related evaluation (course aggregate)
 model CourseEvaluation {
   id               String   @id @default(cuid())
   courseId         String?

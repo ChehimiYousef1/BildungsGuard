@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateParticipantsDto {
@@ -37,4 +37,7 @@ export class CreateParticipantsDto {
 
   @IsOptional() @IsString()
   password?: string;
+
+  @IsOptional() @IsBoolean()
+  sendWelcomeEmail?: boolean;
 }
