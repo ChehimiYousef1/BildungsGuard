@@ -16,7 +16,7 @@ const EMPTY = {
 };
 
 export default function Bootcamps() {
-  const { t, lang } = useApp();
+  const { t, lang, toast } = useApp();
   const de = lang === 'de';
 
   const [rows,    setRows]    = useState<any[]>([]);
@@ -90,8 +90,10 @@ export default function Bootcamps() {
       }
       setOpen(false);
       await load();
+      toast.success(editId ? (de ? 'Bootcamp aktualisiert!' : 'Bootcamp updated!') : (de ? 'Bootcamp erstellt!' : 'Bootcamp created!'));
     } catch (e: any) {
       setFormErr(e?.message || (de ? 'Fehler beim Speichern.' : 'Save failed.'));
+      toast.error(de ? 'Fehler beim Speichern.' : 'Save failed.');
     } finally { setSaving(false); }
   };
 
@@ -105,7 +107,11 @@ export default function Bootcamps() {
       });
       setSel(null);
       await load();
-    } catch (e) { console.error(e); }
+      toast.success(de ? 'Bootcamp gelöscht.' : 'Bootcamp deleted.');
+    } catch (e) {
+      console.error(e);
+      toast.error(de ? 'Fehler beim Löschen.' : 'Delete failed.');
+    }
   };
 
   // ✅ Translated name — uses local dictionary

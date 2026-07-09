@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, X, Trash2, Award, CheckCircle2, XCircle, Pencil, Check } from 'lucide-react';
+﻿import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
+import { Plus, X, Trash2, Award, CheckCircle2, XCircle, Pencil, Check, Download } from 'lucide-react';
 import { C } from '../../../theme/tokens';
 import { useApp } from '../../../context/AppContext';
 import { api } from '../../../lib/api';
@@ -29,16 +30,15 @@ export default function TrAssignment() {
   const de = lang === 'de';
 
   const [assignments, setAssignments] = useState<Assignment[]>(loadAssignments());
-  const [newTitle, setNewTitle] = useState('');
-  const [newMax, setNewMax] = useState('100');
-  const [adding, setAdding] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState('');
-  const [editMax, setEditMax] = useState('');
-
-  const [parts, setParts] = useState<any[]>([]);
-  const [grades, setGrades] = useState<Record<string, any[]>>({});
-  const [loading, setLoading] = useState(true);
+  const [newTitle,    setNewTitle]    = useState('');
+  const [newMax,      setNewMax]      = useState('100');
+  const [adding,      setAdding]      = useState(false);
+  const [editId,      setEditId]      = useState<string | null>(null);
+  const [editTitle,   setEditTitle]   = useState('');
+  const [editMax,     setEditMax]     = useState('');
+  const [parts,       setParts]       = useState<any[]>([]);
+  const [grades,      setGrades]      = useState<Record<string, any[]>>({});
+  const [loading,     setLoading]     = useState(true);
 
   useEffect(() => { saveAssignments(assignments); }, [assignments]);
 
@@ -66,7 +66,7 @@ export default function TrAssignment() {
 
   const addAssignment = () => {
     const title = newTitle.trim();
-    const max = Number(newMax);
+    const max   = Number(newMax);
     if (!title || isNaN(max) || max <= 0) return;
     setAssignments((a) => [...a, { id: Date.now().toString(), title, maxScore: max }]);
     setNewTitle(''); setNewMax('100'); setAdding(false);
@@ -78,9 +78,9 @@ export default function TrAssignment() {
   };
 
   const startEdit = (a: Assignment) => { setEditId(a.id); setEditTitle(a.title); setEditMax(String(a.maxScore)); };
-  const saveEdit = () => {
+  const saveEdit  = () => {
     const title = editTitle.trim();
-    const max = Number(editMax);
+    const max   = Number(editMax);
     if (!title || isNaN(max) || max <= 0) { setEditId(null); return; }
     setAssignments((prev) => prev.map((a) => a.id === editId ? { ...a, title, maxScore: max } : a));
     setEditId(null);
@@ -104,25 +104,62 @@ export default function TrAssignment() {
     return { total: parts.length, scored: scored.length, passed: passed.length, failed: scored.length - passed.length };
   };
 
+  // ===== EXPORT EXCEL =====
+  const exportExcel = () => {
+    const rows: any[] = [];
+    parts.forEach((p) => {
+      assignments.forEach((a) => {
+        const s     = getScore(p.id, a);
+        const score = s?.score ?? null;
+        const pct   = score ? getPct(score) : null;
+        rows.push({
+          [de ? 'Teilnehmer'  : 'Participant']: p.name ?? '',
+          [de ? 'Kontakt'     : 'Contact']:     p.contact ?? p.email ?? '',
+          [de ? 'Aufgabe'     : 'Assignment']:  a.title,
+          [de ? 'Max. Punkte' : 'Max. Score']:  a.maxScore,
+          [de ? 'Punkte'      : 'Score']:       score ?? '',
+          [de ? 'Prozent'     : 'Percent']:     pct !== null ? `${pct}%` : '',
+          [de ? 'Bestanden'   : 'Passed']:      pct !== null ? (pct >= PASS ? (de ? 'Ja' : 'Yes') : (de ? 'Nein' : 'No')) : '',
+        });
+      });
+    });
+    if (!rows.length) { alert(de ? 'Keine Daten.' : 'No data.'); return; }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, de ? 'Aufgaben' : 'Assignments');
+    ws['!cols'] = [{ wch: 22 }, { wch: 25 }, { wch: 20 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+    XLSX.writeFile(wb, `assignments_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
 
-      {/* HEADER */}
+      {/* ===== HEADER ===== */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: '#0F1228' }}>
             {de ? 'Aufgaben & Prüfungen' : 'Assignments & Exams'}
           </div>
           <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>
-            {de ? 'Hier verwaltest du alle Aufgaben. Benotung erfolgt im Grading-Tab.' : 'Manage assignments here. Grading is done in the Grading tab.'}
+            {de ? 'Hier verwaltest du alle Aufgaben.' : 'Manage assignments here.'}
           </div>
         </div>
-        <button className="btn btn-primary" style={{ padding: '8px 16px' }} onClick={() => setAdding(true)}>
-          <Plus size={14} /> {de ? 'Neue Aufgabe' : 'New Assignment'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className="btn btn-ghost"
+            style={{ padding: '8px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
+            onClick={exportExcel}
+            disabled={parts.length === 0}
+          >
+            <Download size={13} /> {de ? 'Exportieren' : 'Export'}
+          </button>
+          <button className="btn btn-primary" style={{ padding: '8px 16px' }} onClick={() => setAdding(true)}>
+            <Plus size={14} /> {de ? 'Neue Aufgabe' : 'New Assignment'}
+          </button>
+        </div>
       </div>
 
-      {/* ADD FORM */}
+      {/* ===== ADD FORM ===== */}
       {adding && (
         <div className="card" style={{ border: `2px solid ${C.iris}`, padding: 18 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.iris, marginBottom: 12 }}>
@@ -134,7 +171,7 @@ export default function TrAssignment() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') addAssignment(); }}
-              placeholder={de ? 'z.B. Final Exam, Quiz 1, Projekt…' : 'e.g. Final Exam, Quiz 1, Project…'}
+              placeholder={de ? 'z.B. Final Exam, Quiz 1…' : 'e.g. Final Exam, Quiz 1…'}
               style={{ flex: 2, minWidth: 200, padding: '10px 13px', borderRadius: 9, border: `1.5px solid ${C.iris}`, fontSize: 13, outline: 'none' }}
             />
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -143,7 +180,7 @@ export default function TrAssignment() {
                 onChange={(e) => setNewMax(e.target.value)}
                 style={{ width: 80, padding: '10px 11px', borderRadius: 9, border: `1px solid ${C.line}`, fontSize: 13, outline: 'none', textAlign: 'center' }}
               />
-              <span style={{ fontSize: 12.5, color: C.muted, whiteSpace: 'nowrap' }}>Max {de ? 'Punkte' : 'pts'}</span>
+              <span style={{ fontSize: 12.5, color: C.muted }}>{de ? 'Punkte' : 'pts'}</span>
             </div>
             <button className="btn btn-primary" onClick={addAssignment} style={{ padding: '9px 18px' }}>
               <Plus size={13} /> {de ? 'Erstellen' : 'Create'}
@@ -155,15 +192,16 @@ export default function TrAssignment() {
         </div>
       )}
 
-      {/* ASSIGNMENT CARDS */}
+      {/* ===== NO ASSIGNMENTS ===== */}
       {assignments.length === 0 && (
         <div className="card" style={{ padding: 24, textAlign: 'center', color: C.muted, fontSize: 13 }}>
           {de ? 'Keine Aufgaben. Erstelle deine erste Aufgabe.' : 'No assignments. Create your first one.'}
         </div>
       )}
 
+      {/* ===== ASSIGNMENT CARDS ===== */}
       {assignments.map((a) => {
-        const stats = getStats(a);
+        const stats     = getStats(a);
         const isEditing = editId === a.id;
         return (
           <div key={a.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -193,8 +231,8 @@ export default function TrAssignment() {
                       style={{ width: 75, padding: '7px 10px', borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13, outline: 'none', textAlign: 'center' }}
                     />
                     <span style={{ fontSize: 12, color: C.muted }}>pts</span>
-                    <button className="icon-mini" onClick={saveEdit}><Check size={14} color={C.mint} /></button>
-                    <button className="icon-mini" onClick={() => setEditId(null)}><X size={14} /></button>
+                    <button style={iconMini} onClick={saveEdit}><Check size={14} color={C.mint} /></button>
+                    <button style={iconMini} onClick={() => setEditId(null)}><X size={14} /></button>
                   </div>
                 ) : (
                   <>
@@ -208,10 +246,10 @@ export default function TrAssignment() {
 
               {!isEditing && (
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="icon-mini" onClick={() => startEdit(a)} title={de ? 'Bearbeiten' : 'Edit'}>
+                  <button style={iconMini} onClick={() => startEdit(a)} title={de ? 'Bearbeiten' : 'Edit'}>
                     <Pencil size={14} color={C.muted} />
                   </button>
-                  <button className="icon-mini" onClick={() => removeAssignment(a.id)} title={de ? 'Löschen' : 'Delete'}>
+                  <button style={iconMini} onClick={() => removeAssignment(a.id)} title={de ? 'Löschen' : 'Delete'}>
                     <Trash2 size={14} color={C.muted} />
                   </button>
                 </div>
@@ -219,12 +257,12 @@ export default function TrAssignment() {
             </div>
 
             {/* Stats */}
-            <div style={{ display: 'flex', padding: '12px 18px', gap: 0 }}>
+            <div style={{ display: 'flex', padding: '12px 18px' }}>
               {[
-                [de ? 'Teilnehmer' : 'Participants', stats.total, C.iris],
-                [de ? 'Bewertet' : 'Graded', stats.scored, C.amber],
-                [de ? 'Bestanden' : 'Passed', stats.passed, C.mint],
-                [de ? 'Nicht best.' : 'Failed', stats.failed, C.rose],
+                [de ? 'Teilnehmer' : 'Participants', stats.total,  C.iris],
+                [de ? 'Bewertet'   : 'Graded',       stats.scored, C.amber],
+                [de ? 'Bestanden'  : 'Passed',        stats.passed, C.mint],
+                [de ? 'Nicht best.': 'Failed',        stats.failed, C.rose],
               ].map(([label, val, col]: any, i, arr) => (
                 <div key={i} style={{
                   flex: 1, textAlign: 'center', padding: '8px 4px',
@@ -250,7 +288,7 @@ export default function TrAssignment() {
               </div>
             )}
 
-            {/* Participants mini list */}
+            {/* Participants list */}
             {!loading && parts.length > 0 && (
               <div style={{ borderTop: `1px solid ${C.lineSoft}`, padding: '8px 18px 12px' }}>
                 <div style={{ fontSize: 11.5, fontWeight: 600, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -258,8 +296,8 @@ export default function TrAssignment() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {parts.map((p) => {
-                    const s = getScore(p.id, a);
-                    const pct = s?.score ? getPct(s.score) : null;
+                    const s      = getScore(p.id, a);
+                    const pct    = s?.score ? getPct(s.score) : null;
                     const passed = pct !== null && pct >= PASS;
                     return (
                       <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 9, background: C.soft }}>
@@ -271,7 +309,7 @@ export default function TrAssignment() {
                             </span>
                             {passed
                               ? <CheckCircle2 size={15} color={C.mint} />
-                              : <XCircle size={15} color={C.rose} />}
+                              : <XCircle     size={15} color={C.rose} />}
                           </>
                         ) : (
                           <span style={{ fontSize: 11.5, color: C.muted }}>
@@ -290,3 +328,8 @@ export default function TrAssignment() {
     </div>
   );
 }
+
+const iconMini: React.CSSProperties = {
+  background: 'none', border: 'none', cursor: 'pointer',
+  padding: 4, display: 'grid', placeItems: 'center', borderRadius: 6,
+};

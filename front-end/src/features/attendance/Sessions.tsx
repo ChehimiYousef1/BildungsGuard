@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import {
   ChevronRight, ChevronDown, BookOpen, CalendarClock,
-  Users, Play, CheckCircle2, Clock, Layers, Plus, X, Pencil, Trash2
+  Users, Play, CheckCircle2, Clock, Layers, X, Pencil, Trash2, Download
 } from 'lucide-react';
 import { C } from '../../theme/tokens';
 import { useApp } from '../../context/AppContext';
@@ -39,6 +40,7 @@ const buildSessions = (courseId: string, measureName: string, courseName: string
 export default function Sessions() {
   const { lang } = useApp();
   const de = lang === 'de';
+  const toast = (useApp() as any).toast;
 
   const [measures,    setMeasures]    = useState<any[]>([]);
   const [courses,     setCourses]     = useState<Record<string, any[]>>({});
@@ -150,9 +152,10 @@ export default function Sessions() {
       });
       setAddOpen(false);
       await loadAll();
+      toast?.success(de ? 'Sitzung erstellt!' : 'Session created!');
     } catch (e) {
       console.error('create session failed', e);
-      alert(de ? 'Fehler beim Erstellen.' : 'Failed to create session.');
+      toast?.error(de ? 'Fehler beim Erstellen.' : 'Failed to create session.');
     } finally { setAddSaving(false); }
   };
 
@@ -178,9 +181,10 @@ export default function Sessions() {
       });
       setEditOpen(false);
       await loadAll();
+      toast?.success(de ? 'Sitzung aktualisiert!' : 'Session updated!');
     } catch (e) {
       console.error('update session failed', e);
-      alert(de ? 'Fehler beim Bearbeiten.' : 'Failed to update session.');
+      toast?.error(de ? 'Fehler beim Bearbeiten.' : 'Failed to update session.');
     } finally { setEditSaving(false); }
   };
 
@@ -202,6 +206,56 @@ export default function Sessions() {
   const totalSessions = Object.values(sessions).reduce((s, arr) => s + arr.length, 0);
   const totalParts    = Object.values(partsByMeas).reduce((s, n) => s + n, 0);
 
+
+  // ===== EXPORT ALL ATTENDANCE =====
+  const exportAll = async () => {
+    try {
+      // جمع كل الـ attendance من كل الـ sessions
+      const allRows: any[] = [];
+
+      for (const measure of measures) {
+        const mCourses = courses[measure.id] ?? [];
+        for (const course of mCourses) {
+          const cSessions = sessions[course.id] ?? [];
+          for (const session of cSessions) {
+            const att = await api<any[]>(`/attendance/${session.id}`).catch(() => []);
+            if (Array.isArray(att)) {
+              att.forEach((a: any) => {
+                allRows.push({
+                  [de ? 'Bootcamp'      : 'Bootcamp']:    tMeasure(measure),
+                  [de ? 'Kurs'          : 'Course']:       course.name,
+                  [de ? 'Sitzung'       : 'Session']:      session.title || `Session ${session.order ?? ''}`,
+                  [de ? 'Uhrzeit'       : 'Time']:         session.time ?? '',
+                  [de ? 'Raum'          : 'Room']:         session.room ?? '',
+                  [de ? 'Teilnehmer'    : 'Participant']:  a.participant?.name ?? a.participantId ?? '',
+                  [de ? 'Anwesenheit'   : 'Status']:
+                    a.status === 'present'  ? (de ? 'Anwesend'    : 'Present')
+                  : a.status === 'excused'  ? (de ? 'Entschuldigt': 'Excused')
+                  : a.present === true      ? (de ? 'Anwesend'    : 'Present')
+                  :                           (de ? 'Abwesend'    : 'Absent'),
+                });
+              });
+            }
+          }
+        }
+      }
+
+      if (allRows.length === 0) {
+        alert(de ? 'Keine Anwesenheitsdaten gefunden.' : 'No attendance data found.');
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(allRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, de ? 'Anwesenheit' : 'Attendance');
+      ws['!cols'] = [{ wch: 22 }, { wch: 20 }, { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 14 }];
+      XLSX.writeFile(wb, `attendance_all_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } catch (e) {
+      console.error('export failed', e);
+      alert(de ? 'Export fehlgeschlagen.' : 'Export failed.');
+    }
+  };
+
   if (selSession) {
     return <AttGrid session={selSession} back={() => setSelSession(null)} />;
   }
@@ -221,6 +275,13 @@ export default function Sessions() {
           </div>
         </div>
 
+        <button
+            className="btn btn-ghost"
+            style={{ padding: '7px 13px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
+            onClick={exportAll}
+          >
+            <Download size={14} /> {de ? 'Alle exportieren' : 'Export all'}
+          </button>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {[
             [<Layers size={13} />,        measures.length,  de ? 'Bootcamps'  : 'Bootcamps',    C.iris],
@@ -349,13 +410,7 @@ export default function Sessions() {
                           </div>
                         </div>
 
-                        <button
-                          className="btn btn-ghost"
-                          style={{ padding: '4px 10px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
-                          onClick={(e) => openAdd(course.id, e)}
-                        >
-                          <Plus size={11} /> {de ? 'Sitzung' : 'Session'}
-                        </button>
+  
 
                         {isCOpen ? <ChevronDown size={14} color={C.amber} /> : <ChevronRight size={14} color={C.muted} />}
                       </div>
@@ -369,13 +424,7 @@ export default function Sessions() {
                               <div style={{ color: C.muted, fontSize: 13, marginBottom: 8 }}>
                                 {de ? 'Noch keine Sitzungen.' : 'No sessions yet.'}
                               </div>
-                              <button
-                                className="btn btn-primary"
-                                style={{ padding: '7px 14px', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                                onClick={(e) => openAdd(course.id, e)}
-                              >
-                                <Plus size={13} /> {de ? 'Erste Sitzung erstellen' : 'Create first session'}
-                              </button>
+  
                             </div>
                           )}
 
@@ -469,48 +518,6 @@ export default function Sessions() {
           </div>
         );
       })}
-
-      {/* ===== ADD SESSION MODAL ===== */}
-      {addOpen && (
-        <div onClick={() => !addSaving && setAddOpen(false)} style={overlay}>
-          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 420, padding: 22 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div className="card-title" style={{ fontSize: 16 }}>
-                {de ? 'Neue Sitzung erstellen' : 'Create new session'}
-              </div>
-              <button onClick={() => setAddOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}>
-                <X size={18} />
-              </button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <label style={lbl}>{de ? 'Titel *' : 'Title *'}
-                <input value={addForm.title} onChange={(e) => setAddForm((f) => ({ ...f, title: e.target.value }))}
-                  style={inp} placeholder={de ? 'z.B. Einführung Python' : 'e.g. Python Introduction'} />
-              </label>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <label style={{ ...lbl, flex: 1 }}>{de ? 'Uhrzeit' : 'Time'}
-                  <input value={addForm.time} onChange={(e) => setAddForm((f) => ({ ...f, time: e.target.value }))}
-                    style={inp} placeholder="09:00-12:15" />
-                </label>
-                <label style={{ ...lbl, flex: 1 }}>{de ? 'Raum' : 'Room'}
-                  <input value={addForm.room} onChange={(e) => setAddForm((f) => ({ ...f, room: e.target.value }))}
-                    style={inp} placeholder="Room 1" />
-                </label>
-              </div>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-                <button className="btn" style={{ padding: '9px 16px', background: C.soft, color: C.inkSoft }}
-                  disabled={addSaving} onClick={() => setAddOpen(false)}>
-                  {de ? 'Abbrechen' : 'Cancel'}
-                </button>
-                <button className="btn btn-primary" style={{ padding: '9px 16px' }}
-                  disabled={addSaving || !addForm.title.trim()} onClick={submitAdd}>
-                  {addSaving ? '...' : (de ? 'Erstellen' : 'Create')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ===== EDIT SESSION MODAL ===== */}
       {editOpen && (

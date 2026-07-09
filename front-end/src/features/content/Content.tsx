@@ -15,6 +15,7 @@ const API = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3000/api
 export default function Content() {
   const { t, lang } = useApp();
   const de = lang === 'de';
+  const { toast } = { toast: (useApp() as any).toast };
 
   const [measures,   setMeasures]   = useState<any[]>([]);
   const [courses,    setCourses]    = useState<any[]>([]);
@@ -97,7 +98,11 @@ export default function Content() {
       }
       setCourseOpen(false);
       await load();
-    } catch (e) { console.error(e); }
+      toast?.success(editCourse ? (de ? 'Kurs aktualisiert!' : 'Course updated!') : (de ? 'Kurs erstellt!' : 'Course created!'));
+    } catch (e) {
+      console.error(e);
+      toast?.error(de ? 'Fehler beim Speichern.' : 'Save failed.');
+    }
     finally { setCourseSaving(false); }
   };
   const deleteCourse = async (id: string, e: React.MouseEvent) => {
@@ -149,7 +154,11 @@ export default function Content() {
       }
       setSessOpen(false);
       await load();
-    } catch (e) { console.error(e); }
+      toast?.success(editSess ? (de ? 'Sitzung aktualisiert!' : 'Session updated!') : (de ? 'Sitzung erstellt!' : 'Session created!'));
+    } catch (e) {
+      console.error(e);
+      toast?.error(de ? 'Fehler beim Speichern.' : 'Save failed.');
+    }
     finally { setSessSaving(false); }
   };
   const deleteSess = async (id: string, e: React.MouseEvent) => {

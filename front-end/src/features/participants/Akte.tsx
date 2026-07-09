@@ -28,6 +28,7 @@ export default function Akte({ t0, back }: any) {
 
   const [participant, setParticipant] = useState<any>(t0);
   const [docs, setDocs]               = useState<any[]>([]);
+  const activeDocs = docs.filter((d) => d.status === 'doc_ready' || d.status === 'doc_partial' || d.status === 'doc_manual');
   const [loadingDocs, setLoadingDocs] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [selDoc, setSelDoc]           = useState<any | null>(null);
@@ -139,13 +140,13 @@ export default function Akte({ t0, back }: any) {
       <div className="grid" style={{ gridTemplateColumns: '1.3fr 1fr' }}>
         <div className="card">
           <div className="card-head">
-            <div className="card-title">{t('documents')} · {docs.length}</div>
+            <div className="card-title">{t('documents')} · {activeDocs.length}</div>
           </div>
           {loadingDocs && <div style={{ padding: 14, color: C.muted, fontSize: 13 }}>…</div>}
-          {!loadingDocs && docs.length === 0 && (
+          {!loadingDocs && activeDocs.length === 0 && (
             <div style={{ padding: 14, color: C.muted, fontSize: 13 }}>0</div>
           )}
-          {!loadingDocs && docs.map((d, i) => (
+          {!loadingDocs && activeDocs.map((d, i) => (
             <div key={d.id ?? i} className="doc-row" style={{ cursor: 'pointer' }}
               onClick={() => setSelDoc(d)}>
               {di(d.status)}

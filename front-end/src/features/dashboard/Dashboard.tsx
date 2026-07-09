@@ -4,21 +4,20 @@ import { Users, ShieldCheck, CalendarClock, AlertTriangle, ChevronRight, Sparkle
 import { C } from '../../theme/tokens';
 import { useApp } from '../../context/AppContext';
 import { Stat } from '../../components/Stat';
-import { TL } from '../../components/TrafficLight';
 import { api } from '../../lib/api';
 
 export default function Dashboard() {
-  const { t, tasks, lang, widgets } = useApp();
+  const { t, tasks, lang, widgets, setView } = useApp();
 
-  const [stats, setStats] = useState<{ readiness: number; open: number; active: number; days: number | null } | null>(null);
-  const [clearItems, setClearItems] = useState<{ label: string; color: string }[]>([]);
-  const [Bootcamps, setBootcamps] = useState<any[]>([]);
-  const [trend, setTrend] = useState<{ w: string; v: number }[]>([]);
-  const [docs, setDocs] = useState<any[]>([]);
-  const [participants, setParticipants] = useState<any[]>([]);
-  const [records, setRecords] = useState<any[]>([]);
-  const [trainerQuals, setTrainerQuals] = useState<any[]>([]);
-  const [hasOpenCapa, setHasOpenCapa] = useState(false);
+  const [stats,          setStats]          = useState<{ readiness: number; open: number; active: number; days: number | null } | null>(null);
+  const [clearItems,     setClearItems]     = useState<{ label: string; color: string; view?: string }[]>([]);
+  const [Bootcamps,      setBootcamps]      = useState<any[]>([]);
+  const [trend,          setTrend]          = useState<{ w: string; v: number }[]>([]);
+  const [docs,           setDocs]           = useState<any[]>([]);
+  const [participants,   setParticipants]   = useState<any[]>([]);
+  const [records,        setRecords]        = useState<any[]>([]);
+  const [trainerQuals,   setTrainerQuals]   = useState<any[]>([]);
+  const [hasOpenCapa,    setHasOpenCapa]    = useState(false);
   const [integrationRate, setIntegrationRate] = useState<number | null>(null);
 
   useEffect(() => {
@@ -56,13 +55,13 @@ export default function Dashboard() {
           days,
         });
 
-        const items: { label: string; color: string }[] = [];
-        const missingDocs = (allDocs || []).filter((d: any) => d.status === 'doc_missing').length;
+        const items: { label: string; color: string; view?: string }[] = [];
+        const missingDocs    = (allDocs || []).filter((d: any) => d.status === 'doc_missing').length;
         const incompleteParts = (parts || []).filter((p: any) => (p.fileCompleteness ?? 0) < 100).length;
 
-        if (openCapa.length > 0) items.push({ label: lang === 'de' ? `${openCapa.length} offene CAPA` : `${openCapa.length} open CAPA`, color: C.rose });
-        if (missingDocs > 0) items.push({ label: lang === 'de' ? `${missingDocs} fehlende Dokumente` : `${missingDocs} missing documents`, color: C.rose });
-        if (incompleteParts > 0) items.push({ label: lang === 'de' ? `${incompleteParts} unvollständige Teilnehmerakten` : `${incompleteParts} incomplete participant files`, color: C.amber });
+        if (openCapa.length > 0)    items.push({ label: lang === 'de' ? `${openCapa.length} offene CAPA`                           : `${openCapa.length} open CAPA`,                color: C.rose,  view: 'qm'           });
+        if (missingDocs > 0)        items.push({ label: lang === 'de' ? `${missingDocs} fehlende Dokumente`                         : `${missingDocs} missing documents`,             color: C.rose,  view: 'docs'         });
+        if (incompleteParts > 0)    items.push({ label: lang === 'de' ? `${incompleteParts} unvollständige Teilnehmerakten`          : `${incompleteParts} incomplete participant files`, color: C.amber, view: 'participants' });
         setClearItems(items);
 
         setBootcamps(meas || []);
@@ -81,9 +80,8 @@ export default function Dashboard() {
 
   const avgAtt = trend.length > 0 ? Math.round(trend.reduce((s, x) => s + x.v, 0) / trend.length) : null;
 
-  const isComplete = (d: any) => d.status && d.status !== 'doc_missing';
-  const isCert = (d: any) => /cert|zeugnis|zertifikat/i.test(d.type || '');
-
+  const isComplete  = (d: any) => d.status && d.status !== 'doc_missing';
+  const isCert      = (d: any) => /cert|zeugnis|zertifikat/i.test(d.type || '');
   const isValidDate = (s?: string | null) => {
     if (!s || !/\d{2}\.\d{2}\.\d{4}/.test(s)) return false;
     const [d, m, y] = s.split('.').map(Number);
@@ -98,9 +96,8 @@ export default function Dashboard() {
   const complaintsStatus: 'g' | 'r' = hasOpenCapa ? 'r' : 'g';
 
   const compliance = (m: any) => {
-    const mParts = participants.filter((p) => p.measureId === m.id);
+    const mParts  = participants.filter((p) => p.measureId === m.id);
     const partIds = new Set(mParts.map((p) => p.id));
-
     let sig: 'g' | 'a' | 'r';
     if (mParts.length === 0) {
       sig = 'r';
@@ -111,14 +108,12 @@ export default function Dashboard() {
       const n = signedPartIds.size;
       sig = n === 0 ? 'r' : n === mParts.length ? 'g' : 'a';
     }
-
     const certs = docs.filter((d) => d.measureId === m.id && isCert(d));
     const cert =
       certs.length === 0 ? 'r'
         : certs.every(isComplete) ? 'g'
         : certs.some(isComplete) ? 'a'
         : 'r';
-
     return { sig, trainer: trainerStatus, cert, complaints: complaintsStatus };
   };
 
@@ -127,16 +122,11 @@ export default function Dashboard() {
       {/* ===== STATS ===== */}
       {widgets.stats && (
         <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', marginBottom: 18 }}>
-          <Stat icon={<ShieldCheck size={18} />} num={stats ? `${stats.readiness}%` : '…'} label={t('readiness')} tone={C.mint} />
-          <Stat icon={<AlertTriangle size={18} />} num={stats ? String(stats.open) : '…'} label={t('open_pts')} tone={C.rose} />
-          <Stat icon={<Users size={18} />} num={stats ? String(stats.active) : '…'} label={t('active_part')} tone={C.iris} />
-          <Stat icon={<CalendarClock size={18} />} num={stats && stats.days != null ? stats.days + ' ' + (lang === 'de' ? 'T' : 'd') : '…'} label={t('to_audit')} tone={C.blue} />
-          <Stat
-            icon={<TrendingUp size={18} />}
-            num={integrationRate !== null ? `${integrationRate}%` : '—'}
-            label={lang === 'de' ? 'Eingliederungsquote' : 'Integration rate'}
-            tone={integrationRate !== null && integrationRate >= 70 ? C.mint : C.amber}
-          />
+          <Stat icon={<ShieldCheck size={18} />}    num={stats ? `${stats.readiness}%` : '…'}                                                                    label={t('readiness')}  tone={C.mint} />
+          <Stat icon={<AlertTriangle size={18} />}  num={stats ? String(stats.open) : '…'}                                                                        label={t('open_pts')}   tone={C.rose} />
+          <Stat icon={<Users size={18} />}          num={stats ? String(stats.active) : '…'}                                                                      label={t('active_part')} tone={C.iris} />
+          <Stat icon={<CalendarClock size={18} />}  num={stats && stats.days != null ? stats.days + ' ' + (lang === 'de' ? 'T' : 'd') : '…'}                     label={t('to_audit')}   tone={C.blue} />
+          <Stat icon={<TrendingUp size={18} />}     num={integrationRate !== null ? integrationRate + '%' : '—'}                                                   label={lang === 'de' ? 'Eingliederungsquote' : 'Integration rate'} tone={integrationRate !== null && integrationRate >= 70 ? C.mint : C.amber} />
         </div>
       )}
 
@@ -167,9 +157,7 @@ export default function Dashboard() {
                 </ResponsiveContainer>
               ) : (
                 <div style={{ height: 208, display: 'grid', placeItems: 'center', color: C.muted, fontSize: 13, textAlign: 'center', padding: 20 }}>
-                  {lang === 'de'
-                    ? 'Noch keine Anwesenheitsdaten.'
-                    : 'No attendance data yet.'}
+                  {lang === 'de' ? 'Noch keine Anwesenheitsdaten.' : 'No attendance data yet.'}
                 </div>
               )}
             </div>
@@ -190,7 +178,8 @@ export default function Dashboard() {
                 </div>
               )}
               {clearItems.map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 11, alignItems: 'center', padding: '11px 0', borderTop: (i || tasks.length) ? `1px solid ${C.lineSoft}` : 'none' }}>
+                <div key={i} onClick={() => { if (item.view) setView(item.view); }}
+                  style={{ display: 'flex', gap: 11, alignItems: 'center', padding: '11px 0', borderTop: (i || tasks.length) ? `1px solid ${C.lineSoft}` : 'none', cursor: item.view ? 'pointer' : 'default' }}>
                   <div style={{ width: 9, height: 9, borderRadius: 50, background: item.color, flexShrink: 0 }} />
                   <div style={{ flex: 1, fontWeight: 600, fontSize: 12.5 }}>{item.label}</div>
                   <ChevronRight size={15} color={C.muted} />
@@ -201,79 +190,76 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ===== INTEGRATION RATE BAR ===== */}
-      {integrationRate !== null && widgets.stats && (
-        <div className="card" style={{ marginBottom: 15, padding: '16px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <TrendingUp size={14} color={C.mint} />
-              {lang === 'de' ? 'Eingliederungsquote (AZAV)' : 'Integration rate (AZAV)'}
-            </div>
-            <span style={{ fontWeight: 800, fontSize: 18, color: integrationRate >= 70 ? C.mint : C.amber }}>
-              {integrationRate}%
-            </span>
-          </div>
-          <div style={{ height: 10, borderRadius: 99, background: C.line, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 99, transition: 'width .5s',
-              width: `${integrationRate}%`,
-              background: integrationRate >= 70 ? C.mint : C.amber,
-            }} />
-          </div>
-          <div style={{ fontSize: 11.5, color: C.muted, marginTop: 6 }}>
-            {lang === 'de'
-              ? `AZAV-Zielwert: ≥ 70% · aktuell: ${integrationRate}%`
-              : `AZAV target: ≥ 70% · current: ${integrationRate}%`}
-          </div>
-        </div>
-      )}
-
-      {/* ===== COMPLIANCE TABLE ===== */}
+      {/* ===== COMPLIANCE — PIE CARDS ===== */}
       {widgets.compliance && (
-        <div className="card" style={{ padding: '19px 8px 8px' }}>
-          <div className="card-head" style={{ padding: '0 13px' }}>
+        <div className="card" style={{ padding: '19px 8px 12px' }}>
+          <div className="card-head" style={{ padding: '0 13px 14px' }}>
             <div className="card-title">{t('compl_by_meas')}</div>
-            <span style={{ fontSize: 11.5, color: C.muted, display: 'flex', gap: 13 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><TL s="g" /> {t('legend_ok')}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><TL s="a" /> {t('legend_check')}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><TL s="r" /> {t('legend_crit')}</span>
-            </span>
           </div>
-          <div className="scroll-x">
-            <table>
-              <thead>
-                <tr>
-                  <th>{t('col_meas')}</th>
-                  <th className="hide-mobile">Nr.</th>
-                  <th style={{ textAlign: 'center' }}>{t('c_sign')}</th>
-                  <th style={{ textAlign: 'center' }}>{t('c_train')}</th>
-                  <th style={{ textAlign: 'center' }}>{t('c_cert')}</th>
-                  <th style={{ textAlign: 'center' }}>{t('c_compl')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Bootcamps.length === 0 && (
-                  <tr>
-                    <td colSpan={6} style={{ padding: 16, color: C.muted, fontSize: 13 }}>
-                      {lang === 'de' ? 'Keine Maßnahmen' : 'No Bootcamps'}
-                    </td>
-                  </tr>
-                )}
-                {Bootcamps.map((m, i) => {
-                  const c = compliance(m);
-                  return (
-                    <tr key={m.id ?? i}>
-                      <td className="cell-name">{m.name}</td>
-                      <td className="hide-mobile mono" style={{ color: C.muted }}>{m.number ?? m.nr ?? '—'}</td>
-                      <td style={{ textAlign: 'center' }}><TL s={c.sig} /></td>
-                      <td style={{ textAlign: 'center' }}><TL s={c.trainer} /></td>
-                      <td style={{ textAlign: 'center' }}><TL s={c.cert} /></td>
-                      <td style={{ textAlign: 'center' }}><TL s={c.complaints} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          {Bootcamps.length === 0 && (
+            <div style={{ padding: 20, color: C.muted, fontSize: 13 }}>
+              {lang === 'de' ? 'Keine Maßnahmen' : 'No Bootcamps'}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10, padding: '0 8px 4px' }}>
+            {Bootcamps.map((m, ix) => {
+              const cp = compliance(m);
+              const statuses = [
+                { key: 'sig',        label: lang === 'de' ? 'Unterschrift' : 'Sign.',   s: cp.sig        },
+                { key: 'trainer',    label: lang === 'de' ? 'Trainer'      : 'Trainer', s: cp.trainer    },
+                { key: 'cert',       label: lang === 'de' ? 'Zertifikat'   : 'Cert.',   s: cp.cert       },
+                { key: 'complaints', label: lang === 'de' ? 'Beschwerden'  : 'Compl.',  s: cp.complaints },
+              ];
+              const good  = statuses.filter(x => x.s === 'g').length;
+              const warn  = statuses.filter(x => x.s === 'a').length;
+              const crit  = statuses.filter(x => x.s === 'r').length;
+              const total = statuses.length;
+              const R     = 16;
+              const circ  = 2 * Math.PI * R;
+              const gLen  = (good / total) * circ;
+              const aLen  = (warn / total) * circ;
+              const rLen  = (crit / total) * circ;
+              const off   = circ * 0.25;
+              const pct   = Math.round((good / total) * 100);
+              const scoreCol = crit > 0 ? '#A32D2D' : warn > 0 ? '#BA7517' : '#1D9E75';
+              const tagBg    = (s: string) => s === 'g' ? '#E1F5EE' : s === 'a' ? '#FAEEDA' : '#FCEBEB';
+              const tagCol   = (s: string) => s === 'g' ? '#085041' : s === 'a' ? '#633806' : '#501313';
+              const tagSym   = (s: string) => s === 'g' ? '✓' : s === 'a' ? '~' : '✕';
+              return (
+                <div key={m.id ?? ix} style={{ border: '0.5px solid #E2E8F0', borderRadius: 10, padding: '14px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#1e293b', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
+                  <svg width="72" height="72" viewBox="0 0 44 44">
+                    <circle cx="22" cy="22" r={R} fill="none" stroke="#E2E8F0" strokeWidth="10"/>
+                    {good > 0 && <circle cx="22" cy="22" r={R} fill="none" stroke="#1D9E75" strokeWidth="10" strokeDasharray={gLen + ' ' + (circ - gLen)} strokeDashoffset={off} transform="rotate(-90 22 22)"/>}
+                    {warn > 0 && <circle cx="22" cy="22" r={R} fill="none" stroke="#BA7517" strokeWidth="10" strokeDasharray={aLen + ' ' + (circ - aLen)} strokeDashoffset={off - gLen} transform="rotate(-90 22 22)"/>}
+                    {crit > 0 && <circle cx="22" cy="22" r={R} fill="none" stroke="#A32D2D" strokeWidth="10" strokeDasharray={rLen + ' ' + (circ - rLen)} strokeDashoffset={off - gLen - aLen} transform="rotate(-90 22 22)"/>}
+                    <circle cx="22" cy="22" r="9" fill="white"/>
+                    <text x="22" y="22" textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="700" fill={scoreCol}>{pct}%</text>
+                  </svg>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, justifyContent: 'center' }}>
+                    {statuses.map(x => (
+                      <span key={x.key} style={{ fontSize: 10, padding: '2px 6px', background: tagBg(x.s), color: tagCol(x.s), borderRadius: 4, fontWeight: 600 }}>
+                        {x.label} {tagSym(x.s)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: 14, padding: '10px 14px 0', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, color: '#085041', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#1D9E75', display: 'inline-block' }}/>
+              {lang === 'de' ? 'Konform' : 'Compliant'}
+            </span>
+            <span style={{ fontSize: 11, color: '#633806', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#BA7517', display: 'inline-block' }}/>
+              {lang === 'de' ? 'Prüfen' : 'Review'}
+            </span>
+            <span style={{ fontSize: 11, color: '#501313', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#A32D2D', display: 'inline-block' }}/>
+              {lang === 'de' ? 'Kritisch' : 'Critical'}
+            </span>
           </div>
         </div>
       )}

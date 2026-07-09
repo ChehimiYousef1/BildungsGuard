@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { translateText } from '../../lib/translateName';
 import {
   FileText, Plus, X, Upload, Download, CheckCircle2,
@@ -492,6 +493,22 @@ export default function DocumentModel() {
     return <FileText size={14} color={C.iris} />;
   };
 
+  // ===== EXPORT EXCEL =====
+  const exportExcel = () => {
+    const data = filtered.map((d) => ({
+      [de ? 'Typ'          : 'Type']:        typeLabel(d.type),
+      [de ? 'Teilnehmer'   : 'Participant']: participants.find((p) => p.id === d.participantId)?.name ?? '—',
+      [de ? 'Bootcamp'     : 'Bootcamp']:    translateText(measures.find((m) => m.id === d.measureId)?.name ?? d.measureId ?? '', lang),
+      [de ? 'Status'       : 'Status']:      statusLabel(d.status ?? ''),
+      [de ? 'Verantwortlich' : 'Responsible']: d.responsible ?? '—',
+      [de ? 'Datei'        : 'File']:        d.fileRef ? (de ? 'Ja' : 'Yes') : (de ? 'Nein' : 'No'),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, de ? 'Dokumente' : 'Documents');
+    ws['!cols'] = [{ wch: 22 }, { wch: 25 }, { wch: 22 }, { wch: 14 }, { wch: 20 }, { wch: 8 }];
+    XLSX.writeFile(wb, `documents_${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
   const filtered = allDocs.filter((d) => {
     if (filterType && d.type !== filterType) return false;
     if (filterPart && d.participantId !== filterPart) return false;
@@ -506,7 +523,7 @@ export default function DocumentModel() {
 
     const row = (icon: React.ReactNode, label: string, value: string) => (
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: `1px solid ${C.lineSoft}` }}>
-        <div style={{ color: C.muted, flexShrink: 0, marginTop: 1 }}>{icon}</div>
+        <div style={{ color: C.muted, flexShrink: 0, marginTop: 1 }}>{icon} <button className="btn btn-ghost" style={{ padding: "7px 13px", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }} onClick={exportExcel}><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>{de ? "Exportieren" : "Export"}</button></div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>{label}</div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{value || '—'}</div>
@@ -614,7 +631,7 @@ export default function DocumentModel() {
           </div>
           {row(<User size={14} />,     de ? 'Teilnehmer' : 'Participant', pt.name ?? '—')}
           {row(<Tag size={14} />,      de ? 'Status' : 'Status',           ENROLLMENT_STATUS[pt.status]?.[lang as 'de'|'en'] ?? pt.status)}
-          {pt.translateText(measure?.name ?? "", lang) && row(<Building2 size={14} />, de ? 'Maßnahme' : 'Bootcamp', pt.translateText(measure.name, lang))}
+          {translateText(pt?.measure?.name ?? pt?.m ?? "", lang) && row(<Building2 size={14} />, de ? 'Maßnahme' : 'Bootcamp', translateText(pt?.measure?.name ?? pt?.m ?? "", lang))}
           {row(<FileText size={14} />, de ? 'Erforderliche Maßnahme' : 'Action required',
             isNS
               ? (de ? 'Schriftliche Begründung + Verbleibsdokumentation erforderlich' : 'Written justification + placement documentation required')
@@ -1133,6 +1150,7 @@ export default function DocumentModel() {
             <FileText size={15} color={C.iris} />
             {de ? 'AZAV-Dokumente' : 'AZAV Documents'} · {filtered.length}
           </div>
+          <button className="btn btn-ghost" style={{ padding: "7px 13px", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }} onClick={exportExcel}><Download size={14} />{de ? "Exportieren" : "Export"}</button>
           {!['ATTENDANCE','PARTICIPANT_RECORD','SURVEY','EVALUATION','PLACEMENT',
              'COURSE_RECORD','COURSE_EVAL','DIARY_ENTRY','ENROLLMENT_STATUS','QM_DOC'].includes(filterType) && (
             <button className="btn btn-primary" style={{ padding: '8px 14px' }} onClick={openNew}>
@@ -1259,7 +1277,25 @@ export default function DocumentModel() {
 
                   const badgeColor = rowColor ?? statusColor(d.status);
 
-                  return (
+                
+  const exportExcel = () => {
+    const rows = allDocs || [];
+    const data = rows.map((d) => ({
+      'Type': d.type || '',
+      'Participant': (participants || []).find((p) => p.id === d.participantId)?.name || '',
+      'Bootcamp': (measures || []).find((m) => m.id === d.measureId)?.name || '',
+      'Status': d.status || '',
+      'Responsible': d.responsible || '',
+      'File': d.fileRef ? 'Yes' : 'No',
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Documents');
+    ws['!cols'] = [{ wch: 22 }, { wch: 25 }, { wch: 22 }, { wch: 14 }, { wch: 20 }, { wch: 8 }];
+    XLSX.writeFile(wb, 'documents_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  };
+
+  return (
                     <tr key={`${d.id}-${i}`} className="row" style={{ cursor: 'pointer' }}
                       onClick={() => setSelDoc(d)}>
                       <td>
@@ -1545,6 +1581,7 @@ const selectSt: React.CSSProperties = {
   padding: '8px 11px', borderRadius: 9, border: '1px solid #E2E8F0',
   fontSize: 12.5, outline: 'none', cursor: 'pointer', minWidth: 160,
 };
+
 
 
 

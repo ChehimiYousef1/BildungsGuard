@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { api } from '../lib/api';
 import { T } from '../i18n';
 import { NAV } from '../config/nav';
@@ -8,6 +9,26 @@ import { authApi, setToken, clearToken, getToken } from '../lib/api';
 import {
   TRAEGER, INIT_PART, INIT_COMPLAINTS, INIT_ALUMNI, INIT_CAMPAIGNS, INIT_CATEGORIES,
 } from '../data';
+
+
+// ===== Toast System =====
+type ToastType = 'success' | 'error' | 'warning' | 'info';
+interface ToastItem { id: string; type: ToastType; message: string; title?: string; }
+
+const TOAST_STYLE: Record<ToastType, { bg: string; border: string; color: string }> = {
+  success: { bg: '#F0FDF4', border: '#86EFAC', color: '#16A34A' },
+  error:   { bg: '#FFF1F2', border: '#FCA5A5', color: '#DC2626' },
+  warning: { bg: '#FFFBEB', border: '#FCD34D', color: '#D97706' },
+  info:    { bg: '#EFF6FF', border: '#93C5FD', color: '#2563EB' },
+};
+
+function ToastIcon({ type }: { type: ToastType }) {
+  const s = { width: 18, height: 18 };
+  if (type === 'success') return <CheckCircle2 {...s} color="#16A34A" />;
+  if (type === 'error')   return <AlertCircle  {...s} color="#DC2626" />;
+  if (type === 'warning') return <AlertTriangle {...s} color="#D97706" />;
+  return <Info {...s} color="#2563EB" />;
+}
 
 const AppCtx = createContext<any>(null);
 export const useApp = () => useContext(AppCtx);
@@ -37,6 +58,29 @@ const DEFAULT_MODULES = {
 const DEFAULT_WIDGETS = { stats: true, trend: true, clear: true, compliance: true };
 
 export function AppProvider({ children }: { children: ReactNode }) {
+
+  // ===== Toast state =====
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const removeToast = useCallback((id: string) => {
+    clearTimeout(toastTimers.current[id]);
+    setToasts((t) => t.filter((x) => x.id !== id));
+  }, []);
+
+  const notify = useCallback((message: string, type: ToastType = 'info', title?: string) => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((t) => [...t.slice(-4), { id, type, message, title }]);
+    toastTimers.current[id] = setTimeout(() => removeToast(id), 4000);
+  }, [removeToast]);
+
+  const toast = {
+    success: (msg: string, title?: string) => notify(msg, 'success', title),
+    error:   (msg: string, title?: string) => notify(msg, 'error',   title),
+    warning: (msg: string, title?: string) => notify(msg, 'warning', title),
+    info:    (msg: string, title?: string) => notify(msg, 'info',    title),
+    show:    notify,
+  };
 
   // ✅ اللغة تُحفظ في localStorage وتُقرأ عند البدء
   const [lang, setLangState] = useState<'de' | 'en'>(
@@ -134,6 +178,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setView('home');
     setAuthed(true);
     loadOrgName();
+    notify(lang === 'de' ? `Willkommen, ${user.name}!` : `Welcome, ${user.name}!`, 'success');
   };
 
   const register = async (
@@ -149,7 +194,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadOrgName();
   };
 
-  const signOut = () => { clearToken(); setUser(null); setAuthed(false); setAiOpen(false); };
+  const signOut = () => { clearToken(); setUser(null); setAuthed(false); setAiOpen(false); notify(lang === 'de' ? 'Abgemeldet.' : 'Signed out.', 'info'); };;
 
   const toggleModule = (r: string, id: string) => {
     setModulesState((m: any) => {
@@ -190,6 +235,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = {
     t, lang, setLang,
+    toast, notify,
     role, setRole, view, setView, navigate,
     authed, login, register, signOut,
     aiOpen, setAiOpen, user,
@@ -208,5 +254,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     resetCustom,
   };
 
-  return <AppCtx.Provider value={value}>{children}</AppCtx.Provider>;
+  return (
+    <AppCtx.Provider value={value}>
+      {children}
+      {/* ===== GLOBAL TOAST ===== */}
+      <div style={{
+        position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+        display: 'flex', flexDirection: 'column', gap: 10,
+        pointerEvents: 'none',
+      }}>
+        {toasts.map((t) => {
+          const s = TOAST_STYLE[t.type];
+          return (
+            <div key={t.id} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 11,
+              padding: '12px 14px',
+              background: s.bg, border: `1.5px solid ${s.border}`,
+              borderRadius: 12, boxShadow: '0 4px 20px rgba(0,0,0,.12)',
+              minWidth: 280, maxWidth: 380,
+              pointerEvents: 'all',
+              animation: 'toastIn 0.25s ease',
+            }}>
+              <div style={{ flexShrink: 0, marginTop: 1 }}><ToastIcon type={t.type} /></div>
+              <div style={{ flex: 1 }}>
+                {t.title && <div style={{ fontWeight: 700, fontSize: 13, color: s.color, marginBottom: 2 }}>{t.title}</div>}
+                <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{t.message}</div>
+              </div>
+              <button onClick={() => removeToast(t.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 2, flexShrink: 0 }}>
+                <X size={14} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <style>{`@keyframes toastIn { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }`}</style>
+    </AppCtx.Provider>
+  );
 }

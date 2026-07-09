@@ -1,8 +1,9 @@
 ﻿import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { translateText } from '../../../lib/translateName';
 import {
   Award, CheckCircle2, BookOpen, Users,
-  ChevronDown, X, Check
+  ChevronDown, X, Check, Download
 } from 'lucide-react';
 import { C } from '../../../theme/tokens';
 import { useApp } from '../../../context/AppContext';
@@ -113,6 +114,36 @@ export default function TrGrade() {
     return num >= PASS_MARK;
   }).length;
 
+
+  const exportExcel = () => {
+    const filtered = participants.filter((p) =>
+      !selMeasure || p.measureId === selMeasure || p.measure?.id === selMeasure
+    );
+    const rows = filtered.map((p) => {
+      const pSurveys = surveys.filter((s) => s.participantId === p.id && s.type === 'test');
+      const lastTest = pSurveys[pSurveys.length - 1];
+      const score = lastTest?.score ?? lastTest?.value ?? null;
+      const pct   = score !== null && lastTest?.maxScore > 0
+        ? Math.round((score / lastTest.maxScore) * 100) : null;
+      return {
+        Teilnehmer:  p.name ?? '',
+        Kontakt:     p.contact ?? p.email ?? '',
+        Bootcamp:    translateText(p.measure?.name ?? p.m ?? '', lang),
+        Aufgabe:     lastTest?.title ?? '',
+        Punkte:      score !== null ? score : '',
+        MaxPunkte:   lastTest?.maxScore ?? '',
+        Prozent:     pct !== null ? pct + '%' : '',
+        Bestanden:   pct !== null ? (pct >= 50 ? 'Ja' : 'Nein') : '',
+      };
+    });
+    if (!rows.length) { alert('Keine Daten'); return; }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Bewertungen');
+    ws['!cols'] = [{ wch: 22 }, { wch: 25 }, { wch: 18 }, { wch: 18 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 10 }];
+    XLSX.writeFile(wb, 'grading_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -136,6 +167,15 @@ export default function TrGrade() {
           <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Award size={15} color={C.iris} />
             {t('open_grading')}
+          
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '7px 13px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
+                onClick={exportExcel}
+                disabled={participants.length === 0}
+              >
+                <Download size={14} /> {de ? 'Excel exportieren' : 'Export Excel'}
+              </button>
           </div>
         </div>
 
