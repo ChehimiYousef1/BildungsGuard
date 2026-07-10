@@ -8,13 +8,22 @@ export class MailService {
   private transporter: nodemailer.Transporter | null = null;
 
   constructor(private readonly config: ConfigService) {
-    const host = this.config.get<string>('smtp.host');
-    if (host) {
+    const host = process.env.SMTP_HOST || this.config.get<string>('smtp.host');
+    const user = process.env.SMTP_USER || this.config.get<string>('smtp.user');
+    const pass = process.env.SMTP_PASS || this.config.get<string>('smtp.pass');
+    this.logger.log('SMTP host: ' + host + ' | user: ' + user);
+    if (host && user && pass) {
       this.transporter = nodemailer.createTransport({
         host,
-        port: this.config.get<number>('smtp.port'),
-        auth: { user: this.config.get<string>('smtp.user'), pass: this.config.get<string>('smtp.pass') },
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: false,
+        requireTLS: true,
+        auth: { user, pass },
+        tls: { rejectUnauthorized: false },
       });
+      this.logger.log('SMTP transporter ready: ' + user);
+    } else {
+      this.logger.warn('SMTP not configured: host=' + host + ' user=' + user);
     }
   }
 
@@ -23,7 +32,7 @@ export class MailService {
       this.logger.warn(`SMTP not configured - skipping email to ${to} ("${subject}")`);
       return { skipped: true };
     }
-    const from = this.config.get<string>('smtp.from');
+    const from = process.env.SMTP_FROM || this.config.get<string>('smtp.from');
     await this.transporter.sendMail({ from, to, subject, html });
     return { sent: true };
   }

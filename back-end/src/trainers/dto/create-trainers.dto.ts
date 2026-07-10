@@ -12,4 +12,10 @@ export class CreateTrainersDto {
 
   @IsOptional() @IsString()
   expiry?: string;
+
+  @IsOptional() @IsString()
+  email?: string;
+
+  @IsOptional() @IsString()
+  password?: string;
 }

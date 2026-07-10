@@ -131,6 +131,7 @@ model Trainer {
   stage          String?  @default("onboarding")
   graduationDate DateTime?
   expiry              String?
+  cvRef               String?
   tenantId            String
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

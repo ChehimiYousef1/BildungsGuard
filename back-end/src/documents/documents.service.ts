@@ -1,3 +1,5 @@
+import * as fsNode from 'fs';
+import * as pathNode from 'path';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -46,11 +48,14 @@ export class DocumentsService {
   async uploadFile(tenantId: string, id: string, file: { originalname: string; buffer: Buffer; mimetype: string }) {
     await this.findOne(tenantId, id);
     const safeName = file.originalname.replace(/[^\w.\-]/g, '_');
-    const objectName = `${tenantId}/documents/${id}/${Date.now()}-${safeName}`;
-    await this.storage.upload(objectName, file.buffer, file.mimetype);
+    const dir = pathNode.join(process.cwd(), 'uploads', 'documents', id);
+    fsNode.mkdirSync(dir, { recursive: true });
+    const filename = Date.now() + '-' + safeName;
+    fsNode.writeFileSync(pathNode.join(dir, filename), file.buffer);
+    const fileRef = '/uploads/documents/' + id + '/' + filename;
     return this.prisma.client.document.update({
       where: { id },
-      data: { fileRef: objectName, status: 'doc_ready' },
+      data: { fileRef, status: 'doc_ready' },
     });
   }
 
@@ -58,7 +63,6 @@ export class DocumentsService {
   async getFileUrl(tenantId: string, id: string) {
     const row = await this.findOne(tenantId, id);
     if (!row.fileRef) throw new NotFoundException('No file attached to this document');
-    const url = await this.storage.presignedGet(row.fileRef, 3600);
-    return { url };
+    return { url: row.fileRef };
   }
 }

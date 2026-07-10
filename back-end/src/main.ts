@@ -25,6 +25,10 @@ async function bootstrap() {
   const videosDir = path.join(publicDir, 'videos');
   if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
   app.useStaticAssets(publicDir, { prefix: '/static' });
+  // ===== Static files for uploads (CV etc) =====
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+  app.useStaticAssets(uploadsDir, { prefix: '/uploads' });
 
   const port = config.get<number>('port') ?? 3000;
   await app.listen(port);
