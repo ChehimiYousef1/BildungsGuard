@@ -40,8 +40,18 @@ export class DocumentsService {
   }
 
   async remove(tenantId: string, id: string) {
-    await this.findOne(tenantId, id);
-    return this.prisma.client.document.delete({ where: { id } });
+    const doc = await this.findOne(tenantId, id);
+    await this.prisma.client.document.delete({ where: { id } });
+    // Recalculate after delete
+    if (doc.participantId) {
+      const REQUIRED_DOCS = ['PARTICIPANT_CONTRACT', 'PRIVACY_CONSENT', 'MEDIA_CONSENT', 'CV', 'CERTIFICATE', 'SICK_NOTE'];
+      const allDocs = await this.prisma.client.document.findMany({ where: { participantId: doc.participantId } });
+      const readyTypes = new Set(allDocs.filter((d) => d.status === 'doc_ready' || d.status === 'doc_manual').map((d) => d.type));
+      const ready = REQUIRED_DOCS.filter(t => readyTypes.has(t)).length;
+      const pct = Math.round((ready / REQUIRED_DOCS.length) * 100);
+      await this.prisma.client.participant.update({ where: { id: doc.participantId }, data: { fileCompleteness: pct } });
+    }
+    return { deleted: true };
   }
 
   // رفع ملف إلى MinIO وتخزين مفتاحه على المستند وتعليمه جاهزًا.
@@ -53,10 +63,21 @@ export class DocumentsService {
     const filename = Date.now() + '-' + safeName;
     fsNode.writeFileSync(pathNode.join(dir, filename), file.buffer);
     const fileRef = '/uploads/documents/' + id + '/' + filename;
-    return this.prisma.client.document.update({
+    const updated = await this.prisma.client.document.update({
       where: { id },
       data: { fileRef, status: 'doc_ready' },
     });
+    // Recalculate fileCompleteness based on required docs
+    if (updated.participantId) {
+      const REQUIRED_DOCS = ['PARTICIPANT_CONTRACT', 'PRIVACY_CONSENT', 'MEDIA_CONSENT', 'CV', 'CERTIFICATE', 'SICK_NOTE'];
+      const allDocs = await this.prisma.client.document.findMany({ where: { participantId: updated.participantId } });
+      const readyTypes = new Set(allDocs.filter((d: any) => d.status === 'doc_ready' || d.status === 'doc_manual').map((d: any) => d.type));
+      const ready = REQUIRED_DOCS.filter(t => readyTypes.has(t)).length;
+      const pct = Math.round((ready / REQUIRED_DOCS.length) * 100);
+      await this.prisma.client.participant.update({ where: { id: updated.participantId }, data: { fileCompleteness: pct } });
+      console.log('[Completeness]', updated.participantId, '| ready:', ready, '/', REQUIRED_DOCS.length, '=', pct + '%');
+    }
+    return updated;
   }
 
   // رابط مؤقّت موقّع لتنزيل الملف المخزّن.
