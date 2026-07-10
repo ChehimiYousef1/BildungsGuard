@@ -7,7 +7,7 @@ import {
   User, Calendar, Tag, Hash, Building2, Clock, Camera,
   ClipboardCheck, Stethoscope, File, Award, BookOpen,
   BarChart2, Star, MapPin, Briefcase, GraduationCap,
-  BookMarked, UserX, ScrollText
+  BookMarked, UserX, ScrollText, ChevronRight
 } from 'lucide-react';
 import { C } from '../../theme/tokens';
 import { useApp } from '../../context/AppContext';
@@ -138,7 +138,9 @@ export default function DocumentModel() {
   const [editId, setEditId]         = useState<string | null>(null);
   const [uploading, setUploading]   = useState<string | null>(null);
   const [filterType, setFilterType] = useState('');
+  const [catModal, setCatModal] = useState(false);
   const [filterPart, setFilterPart] = useState('');
+  const [openPart,   setOpenPart]     = useState<string | null>(null);
   const [formErr, setFormErr]       = useState('');
   const [selDoc, setSelDoc]         = useState<any | null>(null);
 
@@ -424,7 +426,7 @@ export default function DocumentModel() {
       const token = getToken();
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${API}/documents/${id}/file`, {
+      const res = await fetch(`${API}/documents/${id}/upload`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         body: fd,
@@ -1096,7 +1098,7 @@ export default function DocumentModel() {
           const isActive      = filterType === cat.type;
           return (
             <div key={cat.type} className="card"
-              onClick={() => setFilterType(isActive ? '' : cat.type)}
+              onClick={() => { setFilterType(cat.type); setCatModal(true); }}
               style={{
                 cursor: 'pointer', padding: '11px 10px',
                 border: `2px solid ${isActive ? cat.color : C.line}`,
@@ -1128,7 +1130,52 @@ export default function DocumentModel() {
         })}
       </div>
 
-      {/* ===== MINI STATS ===== */}
+      {/* ===== INLINE FILTERED DOCS ===== */}
+      {filterType && (
+        <div className="card" style={{ padding: '14px 8px 8px' }}>
+          <div className="card-head" style={{ padding: '0 13px 10px' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <FileText size={14} color={C.iris} />
+              {typeLabel(filterType)} &middot; {allDocs.filter(d => d.type === filterType).length}
+            </div>
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 12 }}
+              onClick={() => setFilterType('')}>
+              <X size={15} />
+            </button>
+          </div>
+          {allDocs.filter(d => d.type === filterType).length === 0 ? (
+            <div style={{ padding: '10px 14px 14px', color: C.muted, fontSize: 13 }}>
+              {de ? 'Keine Dokumente vorhanden.' : 'No documents yet.'}
+            </div>
+          ) : (
+            <div style={{ padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {allDocs.filter(d => d.type === filterType).map((d, i) => {
+                const part = participants.find(p => p.id === d.participantId);
+                return (
+                  <div key={d.id ?? i} onClick={() => setSelDoc(d)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                      borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', cursor: 'pointer' }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      background: d.status === 'doc_ready' ? '#0FB6A0' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#F59E0B' : '#F4475F' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{part?.name ?? d.participantId ?? '-'}</div>
+                      {d.notes && <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>{d.notes}</div>}
+                    </div>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600,
+                      background: d.status === 'doc_ready' ? '#E1F5EE' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#FAEEDA' : '#FCEBEB',
+                      color: d.status === 'doc_ready' ? '#085041' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#633806' : '#501313' }}>
+                      {STATUS_MAP[d.status] ? STATUS_MAP[d.status][lang] : (d.status ?? '')}
+                    </span>
+                    <ChevronRight size={14} color="#CBD5E1" />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+            {/* ===== MINI STATS ===== */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
         {[
           [de ? 'Gesamt' : 'Total',          allDocs.length, C.iris],
@@ -1171,18 +1218,65 @@ export default function DocumentModel() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 10, padding: '0 13px 14px', flexWrap: 'wrap' }}>
-          <select value={filterPart} onChange={(e) => setFilterPart(e.target.value)} style={selectSt}>
-            <option value="">{de ? '— Alle Teilnehmer —' : '— All participants —'}</option>
-            {participants.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-          {filterPart && (
-            <button className="btn btn-ghost" style={{ padding: '7px 12px', fontSize: 12 }}
-              onClick={() => setFilterPart('')}>
-              <X size={12} /> {de ? 'Filter aufheben' : 'Clear'}
-            </button>
-          )}
-        </div>
+        {/* ACCORDION LIST */}
+        {!loading && participants.length > 0 && (
+          <div style={{ borderTop: '1px solid #E2E8F0' }}>
+            {participants.map((p: any) => {
+              const pDocs  = allDocs.filter((d: any) => d.participantId === p.id);
+              const isOpen = openPart === p.id;
+              const ok     = pDocs.filter((d: any) => d.status === 'doc_ready').length;
+              const miss   = pDocs.filter((d: any) => !d.status || d.status === 'doc_missing').length;
+              return (
+                <div key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <div onClick={() => { setOpenPart(isOpen ? null : p.id); setFilterPart(isOpen ? '' : p.id); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', cursor: 'pointer',
+                      background: isOpen ? '#6D5DF608' : '#fff' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: isOpen ? '#6D5DF6' : '#F1F5F9',
+                      display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <User size={15} color={isOpen ? '#fff' : '#64748B'} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: isOpen ? '#6D5DF6' : '#1e293b' }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+                        {pDocs.length} {de ? 'Dokumente' : 'docs'}
+                        {pDocs.length > 0 && <><span style={{ color: '#0FB6A0', marginLeft: 6 }}>{ok} ok</span>{miss > 0 && <span style={{ color: '#F4475F', marginLeft: 6 }}>{miss} missing</span>}</>}
+                      </div>
+                    </div>
+                    <span style={{ color: '#CBD5E1', fontSize: 12, transition: 'transform .2s', display: 'inline-block',
+                      transform: isOpen ? 'rotate(90deg)' : 'none' }}>&#9654;</span>
+                  </div>
+                  {isOpen && (
+                    <div style={{ background: '#FAFBFF', borderTop: '1px solid #F1F5F9', padding: '4px 0 12px' }}>
+                      {pDocs.length === 0 ? (
+                        <div style={{ padding: '12px 20px', color: '#94A3B8', fontSize: 13 }}>
+                          {de ? 'Keine Dokumente.' : 'No documents yet.'}
+                        </div>
+                      ) : (
+                        <div style={{ padding: '8px 16px 12px' }}>
+                          {pDocs.map((d, i) => (
+                            <div key={d.id ?? i} onClick={() => setSelDoc(d)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', marginBottom: 4,
+                                borderRadius: 8, background: '#fff', border: '1px solid #E2E8F0', cursor: 'pointer' }}
+                            >
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                                background: d.status === 'doc_ready' ? '#0FB6A0' : d.status === 'doc_partial' ? '#F59E0B' : '#F4475F' }} />
+                              <div style={{ flex: 1, fontSize: 12.5, fontWeight: 500 }}>{typeLabel(d.type)}</div>
+                              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600,
+                                background: d.status === 'doc_ready' ? '#E1F5EE' : d.status === 'doc_partial' ? '#FAEEDA' : '#FCEBEB',
+                                color: d.status === 'doc_ready' ? '#085041' : d.status === 'doc_partial' ? '#633806' : '#501313' }}>
+                                {STATUS_MAP[d.status]?.[lang] ?? d.status ?? '—'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {loading && <div style={{ padding: '0 13px 14px', color: C.muted, fontSize: 13 }}>…</div>}
         {!loading && filtered.length === 0 && (
@@ -1560,6 +1654,41 @@ export default function DocumentModel() {
                   {saving ? '…' : (de ? 'Speichern' : 'Save')}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {catModal && filterType && (
+        <div onClick={() => setCatModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,18,40,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} className='card' style={{ width: '100%', maxWidth: 520, maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #E2E8F0' }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{typeLabel(filterType)}</div>
+              <button onClick={() => setCatModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={18} /></button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {allDocs.filter(d => d.type === filterType).length === 0 && (
+                <div style={{ padding: 20, color: C.muted, fontSize: 13, textAlign: 'center' }}>{de ? 'Keine Dokumente.' : 'No documents yet.'}</div>
+              )}
+              {allDocs.filter(d => d.type === filterType).map((d, i) => {
+                const part = participants.find(p => p.id === d.participantId);
+                return (
+                  <div key={d.id ?? i} onClick={() => { setCatModal(false); setSelDoc(d); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                      borderRadius: 9, border: '1px solid #E2E8F0', background: '#fff', cursor: 'pointer' }}>
+                    <div style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0,
+                      background: d.status === 'doc_ready' ? '#0FB6A0' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#F59E0B' : '#F4475F' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{part ? part.name : '—'}</div>
+                      <div style={{ fontSize: 11, color: '#94A3B8' }}>{part ? part.contact : ''}</div>
+                    </div>
+                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600,
+                      background: d.status === 'doc_ready' ? '#E1F5EE' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#FAEEDA' : '#FCEBEB',
+                      color: d.status === 'doc_ready' ? '#085041' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#633806' : '#501313' }}>
+                      {STATUS_MAP[d.status] ? STATUS_MAP[d.status][lang] : d.status}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

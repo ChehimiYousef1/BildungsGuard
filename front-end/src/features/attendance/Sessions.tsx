@@ -46,6 +46,7 @@ export default function Sessions() {
   const [courses,     setCourses]     = useState<Record<string, any[]>>({});
   const [sessions,    setSessions]    = useState<Record<string, any[]>>({});
   const [partsByMeas, setPartsByMeas] = useState<Record<string, number>>({});
+  const [allParts,    setAllParts]    = useState<any[]>([]);
   const [loading,     setLoading]     = useState(true);
 
   const [openMeasure, setOpenMeasure] = useState<string | null>(null);
@@ -64,7 +65,8 @@ export default function Sessions() {
   const [editSaving,  setEditSaving]  = useState(false);
   const [editForm,    setEditForm]    = useState({ title: '', time: '', room: '' });
 
-  const tMeasure = (m: any) => translateText(m?.name ?? '', lang);
+  const [statsModal, setStatsModal] = useState<{ title: string; items: string[] } | null>(null);
+    const tMeasure = (m: any) => translateText(m?.name ?? '', lang);
 
   const loadAll = async () => {
     try {
@@ -86,6 +88,7 @@ export default function Sessions() {
         partMap[m.id] = parts.filter((p) => p.measureId === m.id || p.measure?.id === m.id).length;
       });
       setPartsByMeas(partMap);
+      setAllParts(parts);
 
       const courseMap:  Record<string, any[]> = {};
       const sessionMap: Record<string, any[]> = {};
@@ -284,12 +287,12 @@ export default function Sessions() {
           </button>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {[
-            [<Layers size={13} />,        measures.length,  de ? 'Bootcamps'  : 'Bootcamps',    C.iris],
-            [<BookOpen size={13} />,      totalCourses,     de ? 'Kurse'      : 'Courses',      C.amber],
-            [<CalendarClock size={13} />, totalSessions,    de ? 'Sitzungen'  : 'Sessions',     C.mint],
-            [<Users size={13} />,         totalParts,       de ? 'Teilnehmer' : 'Participants', C.iris],
-          ].map(([icon, count, label, color]: any, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, background: color + '12' }}>
+            [<Layers size={13} />,        measures.length,  de ? 'Bootcamps'  : 'Bootcamps',    '#6D5DF6',  () => { console.log('measures:', measures.length); setStatsModal({ title: de ? 'Bootcamps' : 'Bootcamps', items: measures.length > 0 ? measures.map((m: any) => tMeasure(m)) : ['No data'] }); }],
+            [<BookOpen size={13} />,      totalCourses,     de ? 'Kurse'      : 'Courses',      '#F59E0B', () => setStatsModal({ title: de ? 'Kurse' : 'Courses', items: Object.values(courses).flat().map((c: any) => c.name) })],
+            [<CalendarClock size={13} />, totalSessions,    de ? 'Sitzungen'  : 'Sessions',     '#0FB6A0',  () => setStatsModal({ title: de ? 'Sitzungen' : 'Sessions', items: Object.values(sessions).flat().map((s: any) => s.title || s.id) })],
+            [<Users size={13} />,         totalParts,       de ? 'Teilnehmer' : 'Participants', '#3B82F6',  () => setStatsModal({ title: de ? 'Teilnehmer' : 'Participants', items: allParts.map((p: any) => p.contact ? p.name + ' ' + p.contact : p.name) })],
+          ].map(([icon, count, label, color, onClick]: any, i) => (
+            <div key={i} onClick={onClick ? () => onClick() : undefined} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 9, background: color + '15', border: '1px solid ' + color + '30', cursor: onClick ? 'pointer' : 'default' }}>
               <span style={{ color }}>{icon}</span>
               <span style={{ fontWeight: 800, fontSize: 15, color }}>{count}</span>
               <span style={{ fontSize: 11.5, color: C.muted }}>{label}</span>
@@ -336,10 +339,10 @@ export default function Sessions() {
                 </div>
                 <div style={{ fontSize: 11.5, color: C.muted, marginTop: 4, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                   {measure.number && <span>Nr. {measure.number}</span>}
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <span onClick={(e) => { e.stopPropagation(); if(mCourses.length > 0) setStatsModal({ title: tMeasure(measure) + ' - ' + (de ? 'Kurse' : 'Courses'), items: mCourses.map((c: any) => c.name) }); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, cursor: mCourses.length > 0 ? 'pointer' : 'default', textDecoration: mCourses.length > 0 ? 'underline' : 'none' }}>
                     <BookOpen size={11} /> {mCourses.length} {de ? 'Kurse' : 'courses'}
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <span onClick={(e) => { e.stopPropagation(); if(totalSess > 0) setStatsModal({ title: tMeasure(measure) + ' - ' + (de ? 'Sitzungen' : 'Sessions'), items: mCourses.flatMap((co: any) => (sessions[co.id] ?? []).map((s: any) => s.title || s.id)) }); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, cursor: totalSess > 0 ? 'pointer' : 'default', textDecoration: totalSess > 0 ? 'underline' : 'none' }}>
                     <CalendarClock size={11} /> {totalSess} {de ? 'Sitzungen' : 'sessions'}
                   </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: partCount > 0 ? C.iris : C.muted }}>
@@ -556,6 +559,41 @@ export default function Sessions() {
                   {editSaving ? '...' : (de ? 'Speichern' : 'Save')}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ===== STATS MODAL ===== */}
+      {statsModal && (
+        <div onClick={() => setStatsModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,18,40,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 420, padding: 0, overflow: 'hidden', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{statsModal.title}</div>
+              <button onClick={() => setStatsModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={18} /></button>
+            </div>
+            <div style={{ overflowY: 'auto' }}>
+              {statsModal.items.length === 0 && <div style={{ padding: 20, color: '#94A3B8', fontSize: 13 }}>{de ? 'Keine Eintr�ge.' : 'No entries.'}</div>}
+              {statsModal.items.map((item, i) => (
+                <div key={i} style={{ padding: '10px 18px', borderBottom: '1px solid #F1F5F9', fontSize: 13, fontWeight: 500 }}>{item}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== STATS MODAL ===== */}
+      {statsModal && (
+        <div onClick={() => setStatsModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,18,40,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: '100%', maxWidth: 420, padding: 0, overflow: 'hidden', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{statsModal.title}</div>
+              <button onClick={() => setStatsModal(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><X size={18} /></button>
+            </div>
+            <div style={{ overflowY: 'auto' }}>
+              {statsModal.items.length === 0 && <div style={{ padding: 20, color: '#94A3B8', fontSize: 13 }}>{de ? 'Keine Eintr�ge.' : 'No entries.'}</div>}
+              {statsModal.items.map((item, i) => (
+                <div key={i} style={{ padding: '10px 18px', borderBottom: '1px solid #F1F5F9', fontSize: 13, fontWeight: 500 }}>{item}</div>
+              ))}
             </div>
           </div>
         </div>

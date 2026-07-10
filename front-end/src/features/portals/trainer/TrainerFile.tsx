@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { translateText } from '../../../lib/translateName';
-import { CheckCircle2, BadgeCheck, Plus, X, Pencil, Trash2, FileCheck2, User, Mail } from 'lucide-react';
+import { CheckCircle2, BadgeCheck, Plus, X, Pencil, Trash2, FileCheck2, User, Mail, Upload, FileText } from 'lucide-react';
 import { C } from '../../../theme/tokens';
 import { useApp } from '../../../context/AppContext';
 import { api, getToken } from '../../../lib/api';
@@ -24,6 +24,10 @@ export default function TrFile() {
   const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<any>({ title: '', type: 'qualification', validUntil: '', approvedFor: '' });
+  const [cvFile,     setCvFile]     = useState<File | null>(null);
+  const [cvUploading, setCvUploading] = useState(false);
+  const [cvUrl,      setCvUrl]      = useState<string | null>(null);
+  const cvRef = useRef<HTMLInputElement | null>(null);
 
   const typeLabel = (id?: string) => { const x = TYPES.find((y) => y.id === id); return x ? (de ? x.de : x.en) : id; };
 
@@ -74,6 +78,38 @@ export default function TrFile() {
 
   // اعتمادات التدريس = المؤهّلات التي فيها approvedFor
   const approvals = rows.filter((r) => r.approvedFor);
+
+  
+
+  
+
+  
+
+  const uploadCv = async (file: File) => {
+    if (!user?.trainerId && !user?.id) return;
+    const trainerId = user?.trainerId ?? user?.id;
+    setCvUploading(true);
+    try {
+      const token = getToken();
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(API + '/trainers/' + trainerId + '/cv', {
+        method: 'POST',
+        headers: token ? { Authorization: 'Bearer ' + token } : undefined,
+        body: fd,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCvUrl(data.url ?? file.name);
+      } else {
+        alert(de ? 'Upload fehlgeschlagen.' : 'Upload failed.');
+      }
+    } catch (e) {
+      console.error('cv upload failed', e);
+    } finally {
+      setCvUploading(false);
+    }
+  };
 
   return (
     <>
@@ -156,6 +192,40 @@ export default function TrFile() {
           </div>
         </div>
       )}
+    {/* ===== CV UPLOAD CARD ===== */}
+      <div className="card" style={{ marginTop: 15 }}>
+        <div className="card-head">
+          <div className="card-title">
+            <FileText size={15} style={{ marginRight: 6 }} />
+            {de ? 'Lebenslauf (CV)' : 'Curriculum Vitae (CV)'}
+          </div>
+        </div>
+        <div style={{ padding: '12px 0' }}>
+          <input ref={cvRef} type="file" accept=".pdf,.doc,.docx" style={{ display: 'none' }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) { setCvFile(f); uploadCv(f); } }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              className="btn btn-ghost"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px' }}
+              disabled={cvUploading}
+              onClick={() => cvRef.current?.click()}
+            >
+              <Upload size={15} />
+              {cvUploading ? (de ? 'Wird hochgeladen...' : 'Uploading...') : (de ? 'CV hochladen' : 'Upload CV')}
+            </button>
+            {(cvFile || cvUrl) && (
+              <span style={{ fontSize: 12, color: '#0FB6A0', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <CheckCircle2 size={13} />
+                {cvFile?.name || cvUrl}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11.5, color: '#94A3B8', marginTop: 8 }}>
+            {de ? 'Erlaubte Formate: PDF, DOC, DOCX' : 'Accepted formats: PDF, DOC, DOCX'}
+          </div>
+        </div>
+      </div>
+    
     </>
   );
 }

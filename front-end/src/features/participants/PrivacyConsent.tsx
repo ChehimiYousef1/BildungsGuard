@@ -102,7 +102,7 @@ export default function PrivacyConsent({ participantId }: { participantId: strin
       const token = getToken();
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${API}/documents/${id}/file`, {
+      const res = await fetch(`${API}/documents/${id}/upload`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         body: fd,

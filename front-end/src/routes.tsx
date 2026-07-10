@@ -9,7 +9,6 @@ import Content from './features/content/Content';
 import Docs from './features/documents/DocumentModel';
 import Alumni from './features/alumni/Alumni';
 import Comms from './features/comms/Comms';
-import Categories from './features/categories/Categories';
 import Automations from './features/automations/Automations';
 import SettingsView from './features/settings/Settings';
 import TrHome from './features/portals/trainer/Home';
@@ -35,7 +34,6 @@ export function renderView(role: string, view: string) {
     case 'verwaltung/docs': return <Docs />;
     case 'verwaltung/alumni': return <Alumni />;
     case 'verwaltung/comms': return <Comms />;
-    case 'verwaltung/categories': return <Categories />;
     case 'verwaltung/automations': return <Automations />;
     case 'dozent/home': return <TrHome />;
     case 'dozent/attendance': return <Attendance />;
