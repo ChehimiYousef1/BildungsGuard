@@ -37,6 +37,8 @@ import { LessonProgressModule } from './lesson-progress/lesson-progress.module';
 import { PlacementFollowUpModule } from './placement-follow-up/placement-follow-up.module';
 import { CourseEvaluationsModule } from './course-evaluations/course-evaluations.module';
 import { EquipmentLoansModule } from './equipment-loans/equipment-loans.module';
+import { SupportModule } from './support/support.module';
+import { QuizModule } from './quiz/quiz.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -58,6 +60,8 @@ import { AppService } from './app.service';
     SurveysModule, EvaluationsModule, CourseRecordsModule,
     TrainerQualificationsModule, LessonProgressModule,
     PlacementFollowUpModule, CourseEvaluationsModule, EquipmentLoansModule,
+    SupportModule,
+    QuizModule,
   ],
   controllers: [AppController],
   providers: [

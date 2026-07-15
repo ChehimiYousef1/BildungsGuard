@@ -83,7 +83,26 @@ export class ParticipantsService {
 
   async update(tenantId: string, id: string, dto: UpdateParticipantsDto) {
     await this.findOne(tenantId, id);
-    return this.prisma.client.participant.update({ where: { id }, data: dto });
+    const updated = await this.prisma.client.participant.update({ where: { id }, data: dto });
+    if (dto.status === 'completed') {
+      const measure = updated.measureId
+        ? await this.prisma.client.measure.findFirst({ where: { id: updated.measureId } })
+        : null;
+      const existing = await this.prisma.client.alumni.findFirst({ where: { tenantId, name: updated.name } });
+      if (!existing) {
+        await this.prisma.client.alumni.create({
+          data: {
+            name:        updated.name,
+            measure:     measure?.name ?? '',
+            outcome:     'unknown',
+            graduatedAt: new Date().toISOString().slice(0, 10),
+            tenantId,
+          },
+        });
+        console.log('[Alumni] Auto-created:', updated.name, '| Bootcamp:', measure?.name ?? '-');
+      }
+    }
+    return updated;
   }
 
   async remove(tenantId: string, id: string) {

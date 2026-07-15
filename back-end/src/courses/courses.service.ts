@@ -11,9 +11,9 @@ export class CoursesService {
     return this.prisma.client.course.create({ data: { ...dto, tenantId } });
   }
 
-  findAll(tenantId: string) {
+  findAll(tenantId: string, measureId?: string) {
     return this.prisma.client.course.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(measureId ? { measureId } : {}) },
       include: {
         measure: true,
         sessions: {

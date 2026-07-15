@@ -589,3 +589,84 @@ model EquipmentLoan {
   @@index([tenantId])
   @@index([participantId])
 }
+
+
+model SupportTicket {
+  id          String           @id @default(cuid())
+  subject     String
+  type        String
+  status      String           @default("open")
+  userId      String
+  userRole    String
+  userName    String
+  tenantId    String
+  messages    SupportMessage[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model SupportMessage {
+  id         String         @id @default(cuid())
+  ticketId   String
+  ticket     SupportTicket  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderId   String
+  senderName String
+  senderRole String
+  content    String
+  fileRef    String?
+  tenantId   String
+  createdAt  DateTime       @default(now())
+  @@index([ticketId])
+  @@index([tenantId])
+}
+
+model Quiz {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  measureId   String?
+  passMark    Int           @default(50)
+  timeLimit   Int?
+  tenantId    String
+  questions   Question[]
+  attempts    QuizAttempt[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  @@index([tenantId])
+  @@index([measureId])
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  quizId        String
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  question      String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String?
+  correctAnswer String
+  points        Int      @default(1)
+  topic         String?
+  tenantId      String
+  @@index([quizId])
+  @@index([tenantId])
+}
+
+model QuizAttempt {
+  id            String   @id @default(cuid())
+  quizId        String
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  participantId String
+  score         Int
+  total         Int
+  passed        Boolean
+  answers       Json
+  tenantId      String
+  createdAt     DateTime @default(now())
+  @@index([quizId])
+  @@index([participantId])
+  @@index([tenantId])
+}
