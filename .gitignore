@@ -8,3 +8,21 @@
 node_modules
 dist
 build
+
+# Private keys
+*.pem
+# TypeScript build cache
+*.tsbuildinfo
+
+
+# Private keys
+*.pem
+# TypeScript build cache
+*.tsbuildinfo
+
+
+# Private keys
+*.pem
+# TypeScript build cache
+*.tsbuildinfo
+

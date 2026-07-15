@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import { X, Plus, Trash2, Download, Upload, Check, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { C } from '../../../theme/tokens';
@@ -96,17 +96,17 @@ export default function QuizModal({ onClose, onCreated, measureId }: QuizModalPr
         method: 'POST',
         body: JSON.stringify({ title, description: desc || undefined, measureId: measureId || undefined }),
       });
-      setQuizId(quiz.id);
+      setQuizId((quiz as any).id);
       // Then upload questions
       const form = new FormData();
       form.append('file', importFile);
-      await fetch(`http://localhost:3000/api/v1/quiz/${quiz.id}/import`, {
+      await fetch(`${import.meta.env.VITE_API_URL || '/api/v1'}/quiz/${(quiz as any).id}/import`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getToken()}` },
         body: form,
       });
       // Reload quiz with questions
-      const full = await api(`/quiz/${quiz.id}`);
+      const full = await api(`/quiz/${(quiz as any).id}`);
       onCreated(full);
     } finally { setImporting(false); }
   };
@@ -149,7 +149,7 @@ export default function QuizModal({ onClose, onCreated, measureId }: QuizModalPr
           {/* Common: title + desc */}
           <label style={lbl}>{de ? 'Quiz-Titel *' : 'Quiz Title *'}
             <input value={title} onChange={e => setTitle(e.target.value)}
-              placeholder={de ? 'z.B. Modul 3 – Abschlusstest' : 'e.g. Module 3 Final Test'}
+              placeholder={de ? 'z.B. Modul 3 â€“ Abschlusstest' : 'e.g. Module 3 Final Test'}
               style={inp} autoFocus />
           </label>
           <label style={lbl}>{de ? 'Beschreibung' : 'Description (optional)'}
@@ -212,7 +212,7 @@ export default function QuizModal({ onClose, onCreated, measureId }: QuizModalPr
               ))}
               <button onClick={addQ} className="btn btn-ghost"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
-                <Plus size={14} /> {de ? 'Frage hinzufügen' : 'Add Question'}
+                <Plus size={14} /> {de ? 'Frage hinzufÃ¼gen' : 'Add Question'}
               </button>
             </>
           ) : (
@@ -225,7 +225,7 @@ export default function QuizModal({ onClose, onCreated, measureId }: QuizModalPr
               </button>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
                 {de
-                  ? 'Laden Sie die Vorlage herunter, füllen Sie die Fragen aus und laden Sie die Datei hier hoch.'
+                  ? 'Laden Sie die Vorlage herunter, fÃ¼llen Sie die Fragen aus und laden Sie die Datei hier hoch.'
                   : 'Download the template, fill in your questions, then upload the file below.'}
                 <br/>
                 {de ? 'Spalten: Question, OptionA, OptionB, OptionC, OptionD, CorrectAnswer, Points, Topic'
@@ -236,7 +236,7 @@ export default function QuizModal({ onClose, onCreated, measureId }: QuizModalPr
               <button onClick={() => fileRef.current?.click()} className="btn btn-ghost"
                 style={{ display: 'flex', alignItems: 'center', gap: 7, alignSelf: 'flex-start' }}>
                 <Upload size={14} />
-                {importFile ? importFile.name : (de ? 'Excel-Datei auswählen' : 'Choose Excel file')}
+                {importFile ? importFile.name : (de ? 'Excel-Datei auswÃ¤hlen' : 'Choose Excel file')}
               </button>
               {preview.length > 0 && (
                 <div style={{ background: '#F8FAFC', borderRadius: 8, padding: 12 }}>
@@ -264,7 +264,7 @@ export default function QuizModal({ onClose, onCreated, measureId }: QuizModalPr
             disabled={!title.trim() || saving || importing}
             onClick={mode === 'manual' ? handleManualSave : handleImport}>
             <Check size={14} />
-            {(saving || importing) ? '…' : (de ? 'Quiz erstellen' : 'Create Quiz')}
+            {(saving || importing) ? 'â€¦' : (de ? 'Quiz erstellen' : 'Create Quiz')}
           </button>
         </div>
       </div>
