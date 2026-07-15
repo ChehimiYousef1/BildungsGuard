@@ -1,0 +1,10 @@
+const fs = require('fs');
+let c = fs.readFileSync('src/features/documents/DocumentModel.tsx', 'utf8');
+
+c = c.replace(
+  "                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600,\n                      background: d.status === 'doc_ready' ? '#E1F5EE' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#FAEEDA' : '#FCEBEB',\n                      color: d.status === 'doc_ready' ? '#085041' : d.status === 'doc_partial'\n || d.status === 'doc_manual' ? '#633806' : '#501313' }}>\n                      {STATUS_MAP[d.status] ? STATUS_MAP[d.status][lang] : d.status}\n                    </span>\n                  </div>",
+  "                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600,\n                      background: d.status === 'doc_ready' ? '#E1F5EE' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#FAEEDA' : '#FCEBEB',\n                      color: d.status === 'doc_ready' ? '#085041' : d.status === 'doc_partial'\n || d.status === 'doc_manual' ? '#633806' : '#501313' }}>\n                      {STATUS_MAP[d.status] ? STATUS_MAP[d.status][lang] : d.status}\n                    </span>\n                    <button onClick={(e) => { e.stopPropagation(); const rows = [{ [de ? 'Teilnehmer' : 'Participant']: part ? part.name : '-', [de ? 'Typ' : 'Type']: typeLabel(d.type), [de ? 'Status' : 'Status']: d.status ?? '', [de ? 'Kontakt' : 'Contact']: part ? part.contact : '' }]; const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Export'); XLSX.writeFile(wb, (part ? part.name : 'doc') + '_' + typeLabel(d.type) + '.xlsx'); }} style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', color: '#6D5DF6', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}><Download size={11} /></button>\n                  </div>"
+);
+
+fs.writeFileSync('src/features/documents/DocumentModel.tsx', c, 'utf8');
+console.log('DONE - count:', (c.match(/XLSX\.writeFile/g)||[]).length);

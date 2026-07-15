@@ -28,12 +28,16 @@ export default function QM() {
   const de = lang === 'de';
 
   const [tab, setTab] = useState('kpi');
+  useEffect(() => { const t = localStorage.getItem('qm_init_tab'); if (t) { localStorage.removeItem('qm_init_tab'); setTab(t); } }, []);
 
   const [apiParts,    setApiParts]    = useState<any[]>([]);
   const [apiAlumni,   setApiAlumni]   = useState<any[]>([]);
   const [apiDocs,     setApiDocs]     = useState<any[]>([]);
   const [apiTrainers, setApiTrainers] = useState<any[]>([]);
   const [capaRows,    setCapaRows]    = useState<any[]>([]);
+  const [quizStats,   setQuizStats]   = useState<any>(null);
+  const [quizMeasure, setQuizMeasure] = useState('');
+  const [apiMeasures,  setApiMeasures]  = useState<any[]>([]);
   const [qmDocs,      setQmDocs]      = useState<any[]>([]);
   const [apiAudits,   setApiAudits]   = useState<any[]>([]);
   const [loading,     setLoading]     = useState(true);
@@ -88,6 +92,15 @@ export default function QM() {
       } finally { setLoading(false); }
     })();
   }, []);
+  useEffect(() => {
+    api('/measures').then((m: any) => setApiMeasures(Array.isArray(m) ? m : [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (tab !== 'quiz') return;
+    const url = quizMeasure ? '/quiz/stats?measureId=' + quizMeasure : '/quiz/stats';
+    api(url).then((s: any) => setQuizStats(s)).catch(() => {});
+  }, [tab, quizMeasure]);
 
   // ===== KPIs =====
   const totalAlumni     = apiAlumni.length;
@@ -342,10 +355,25 @@ export default function QM() {
     { id: 'alumni',       label: 'Alumni',                             icon: <Award          size={13} /> },
     { id: 'measures',     label: 'Bootcamps',                          icon: <BookOpen       size={13} /> },
     { id: 'azav_docs',    label: de ? 'AZAV-Dokumente' : 'AZAV docs', icon: <ClipboardCheck size={13} /> },
+    { id: 'quiz',  label: de ? 'Quiz-�bersicht' : 'Quiz Overview', icon: <span style={{fontSize:13}}>??</span> },
     { id: 'capa',         label: 'CAPA',                               icon: <AlertTriangle  size={13} /> },
     { id: 'evidence',     label: de ? 'Nachweise' : 'Evidence',        icon: <CheckCircle2   size={13} /> },
     // audit tab moved to sidebar },
   ];
+
+  const submitDoc = async () => {
+    try {
+      if (editId) {
+        await api('/qm-docs/' + editId, { method: 'PATCH', body: JSON.stringify(form) });
+      } else {
+        await api('/qm-docs', { method: 'POST', body: JSON.stringify(form) });
+      }
+      setOpen(false);
+      setEditId(null);
+      const fresh = await api('/qm-docs').catch(() => []);
+      setQmDocs(Array.isArray(fresh) ? fresh : []);
+    } catch (e) { console.error('submitDoc failed', e); }
+  };
 
   return (
     <>
@@ -650,7 +678,7 @@ export default function QM() {
                   return (
                     <tr key={a.id ?? i} className="row">
                       <td><div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Avatar n={a.name} c={a.c} /><span style={{ fontWeight: 600, fontSize: 13 }}>{a.name}</span></div></td>
-                      <td style={{ fontSize: 12.5 }}>{translateText(a.m ?? a.measureName ?? a.measure?.name ?? '', lang) || '—'}</td>
+                      <td style={{ fontSize: 12.5 }}>{a.measure ?? a.m ?? a.measureName ?? '-'}</td>
                       <td style={{ fontSize: 12, color: C.muted }}>{a.grad ?? a.graduatedAt ?? '—'}</td>
                       <td><span className="badge" style={{ background: oc + '18', color: oc, fontSize: 11 }}>{a.outcome}</span></td>
                       <td className="hide-mobile" style={{ fontSize: 12.5 }}>{a.employer ?? '—'}</td>
@@ -890,8 +918,86 @@ export default function QM() {
         </div>
       )}
 
+            {/* ===== QUIZ TAB ===== */}
+      {tab === 'quiz' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <select value={quizMeasure} onChange={e => setQuizMeasure(e.target.value)}
+              style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 13, outline: 'none' }}>
+              <option value="">{de ? 'Alle Bootcamps' : 'All Bootcamps'}</option>
+              {apiMeasures.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+          {quizStats ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12 }}>
+              {[
+                { label: de ? 'Quizzes gesamt' : 'Total Quizzes',   val: quizStats.totalQuizzes,   color: C.iris },
+                { label: de ? 'Versuche gesamt' : 'Total Attempts',  val: quizStats.totalAttempts,  color: C.amber },
+                { label: de ? 'Bestanden' : 'Pass Count',            val: quizStats.passCount,      color: C.mint },
+                { label: de ? 'Bestandsquote' : 'Pass Rate',         val: quizStats.passRate + '%', color: quizStats.passRate >= 50 ? C.mint : C.rose },
+              ].map((kpi, i) => (
+                <div key={i} className="card" style={{ padding: '18px 16px' }}>
+                  <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 6 }}>{kpi.label}</div>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: kpi.color }}>{kpi.val}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: C.muted, fontSize: 13 }}>{de ? 'L�dt�' : 'Loading�'}</div>
+          )}
+        </div>
+      )}
+
       {/* ===== AUDIT TAB ===== */}
 
+      {viewDoc && (
+        <div onClick={() => setViewDoc(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,18,40,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} className='card' style={{ width: '100%', maxWidth: 500, maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #E2E8F0' }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{de ? (viewDoc.titleDe ?? viewDoc.title) : (viewDoc.title ?? viewDoc.titleDe)}</div>
+              <button onClick={() => setViewDoc(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}><div style={{ fontSize: 12, color: C.muted, minWidth: 120 }}>{de ? 'Typ' : 'Type'}</div><div style={{ fontSize: 13, fontWeight: 500 }}>{typeLabel(viewDoc.type)}</div></div>
+              <div style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}><div style={{ fontSize: 12, color: C.muted, minWidth: 120 }}>Version</div><div style={{ fontSize: 13, fontWeight: 500 }}>{viewDoc.version ?? '-'}</div></div>
+              <div style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}><div style={{ fontSize: 12, color: C.muted, minWidth: 120 }}>{de ? 'Verantwortlich' : 'Owner'}</div><div style={{ fontSize: 13, fontWeight: 500 }}>{viewDoc.owner ?? '-'}</div></div>
+              <div style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}><div style={{ fontSize: 12, color: C.muted, minWidth: 120 }}>Status</div><div style={{ fontSize: 13, fontWeight: 500 }}>{viewDoc.status ?? '-'}</div></div>
+              {viewDoc.fileRef && <a href={viewDoc.fileRef} target='_blank' rel='noreferrer' style={{ color: C.iris, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}><Download size={14} />{de ? 'Datei herunterladen' : 'Download file'}</a>}
+            </div>
+            <div style={{ padding: '12px 18px', borderTop: '1px solid #F1F5F9', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button className='btn btn-ghost' onClick={() => { openEditDoc(viewDoc); setViewDoc(null); }} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Pencil size={13} /> {de ? 'Bearbeiten' : 'Edit'}</button>
+              <button className='btn btn-ghost' onClick={() => setViewDoc(null)}>{de ? 'Schliessen' : 'Close'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {open && (
+        <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,18,40,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
+          <div onClick={(e) => e.stopPropagation()} className='card' style={{ width: '100%', maxWidth: 500, padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{editId ? (de ? 'Dokument bearbeiten' : 'Edit document') : (de ? 'Neues Dokument' : 'New document')}</div>
+              <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <label style={lbl}>{de ? 'Titel' : 'Title'}<input value={form.title} onChange={(e) => set('title', e.target.value)} style={inp} /></label>
+              <label style={lbl}>{de ? 'Version' : 'Version'}<input value={form.version} onChange={(e) => set('version', e.target.value)} style={inp} placeholder='1.0' /></label>
+              <label style={lbl}>{de ? 'Verantwortlich' : 'Owner'}<input value={form.owner} onChange={(e) => set('owner', e.target.value)} style={inp} /></label>
+              <label style={lbl}>Status
+                <select value={form.status} onChange={(e) => set('status', e.target.value)} style={inp}>
+                  <option value='doc_ready'>{de ? 'Gueltig' : 'Valid'}</option>
+                  <option value='inReview'>{de ? 'In Pruefung' : 'In review'}</option>
+                  <option value='draft'>{de ? 'Entwurf' : 'Draft'}</option>
+                </select>
+              </label>
+              <label style={lbl}>{de ? 'Inhalt' : 'Content'}<textarea value={form.content} onChange={(e) => set('content', e.target.value)} rows={4} style={{ ...inp, resize: 'vertical' }} /></label>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+                <button className='btn' style={{ padding: '9px 16px', background: '#F1F5F9', color: '#475569' }} onClick={() => setOpen(false)}>{de ? 'Abbrechen' : 'Cancel'}</button>
+                <button className='btn btn-primary' style={{ padding: '9px 18px' }} onClick={submitDoc}>{de ? 'Speichern' : 'Save'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

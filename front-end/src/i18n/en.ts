@@ -39,7 +39,7 @@ export const en = {
     no_certs: 'No certificates yet', no_certs_d: 'Your AZAV completion certificate appears here automatically once the Bootcamp is successfully completed.',
     ai_intro: 'Hi! I know your provider\'s current state and I can get things done for you — open screens, complete files, log a CAPA, draw a sample. Ask me or pick one:',
     ai_ph: 'Ask Aino or give a command…', ai_done: 'Done', ai_run: 'Run',
-    n_alumni: 'Alumni', n_comms: 'Communication', n_settings: 'Settings',
+    n_alumni: 'Alumni', n_comms: 'Communication', n_support: 'Support & Feedback', n_settings: 'Settings',
     login_h: 'Welcome back', login_sub: 'Choose your portal and sign in', sign_in: 'Sign in', login_demo: 'Demo · any credentials work',
     login_admin_d: 'Participants, Bootcamps, QM, audit & marketing — full control.',
     login_trainer_d: 'Sessions, attendance and grading for your courses.',

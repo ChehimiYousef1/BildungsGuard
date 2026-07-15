@@ -138,7 +138,9 @@ export default function DocumentModel() {
   const [editId, setEditId]         = useState<string | null>(null);
   const [uploading, setUploading]   = useState<string | null>(null);
   const [filterType, setFilterType] = useState('');
+  const [filterStatus, setFilterStatus] = useState(() => { const f = localStorage.getItem('docs_init_filter'); if (f) { localStorage.removeItem('docs_init_filter'); return f; } return ''; });
   const [catModal, setCatModal] = useState(false);
+  const [catSearch, setCatSearch] = useState('');
   const [filterPart, setFilterPart] = useState('');
   const [openPart,   setOpenPart]     = useState<string | null>(null);
   const [formErr, setFormErr]       = useState('');
@@ -438,12 +440,13 @@ export default function DocumentModel() {
     } finally { setUploading(null); }
   };
 
-  const downloadFile = async (id: string) => {
-    try {
-      const data = await api<{ url: string }>(`/documents/${id}/file-url`);
-      if (data?.url) window.open(data.url, '_blank');
-      else alert(de ? 'Keine Datei vorhanden.' : 'No file available.');
-    } catch (e) { console.error(e); }
+  const downloadFile = (id: string) => {
+    const doc = allDocs.find((d: any) => d.id === id);
+    if (doc?.fileRef) {
+      window.open('http://localhost:3000' + doc.fileRef, '_blank');
+    } else {
+      alert(de ? 'Keine Datei vorhanden.' : 'No file available.');
+    }
   };
 
   const typeLabel = (v: string) => {
@@ -525,7 +528,7 @@ export default function DocumentModel() {
 
     const row = (icon: React.ReactNode, label: string, value: string) => (
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 0', borderBottom: `1px solid ${C.lineSoft}` }}>
-        <div style={{ color: C.muted, flexShrink: 0, marginTop: 1 }}>{icon} <button className="btn btn-ghost" style={{ padding: "7px 13px", fontSize: 12, display: "flex", alignItems: "center", gap: 5 }} onClick={exportExcel}><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>{de ? "Exportieren" : "Export"}</button></div>
+        <div style={{ color: C.muted, flexShrink: 0, marginTop: 1 }}>{icon}</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, color: C.muted, marginBottom: 2 }}>{label}</div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{value || '—'}</div>
@@ -1071,111 +1074,66 @@ export default function DocumentModel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
 
-      {/* ===== 17 CATEGORY CARDS ===== */}
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+      {/* ===== CATEGORY LIST ===== */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 10 }}>
         {[
-          { type: 'PARTICIPANT_CONTRACT', icon: <FileText       size={14} color="#fff" />, label: de ? 'Verträge'            : 'Contracts',       color: C.iris  },
-          { type: 'EQUIPMENT_LOAN',       icon: <Laptop         size={14} color="#fff" />, label: de ? 'Geräte'              : 'Equipment',       color: C.amber },
-          { type: 'PRIVACY_CONSENT',      icon: <Shield         size={14} color="#fff" />, label: de ? 'Datenschutz'         : 'Privacy',         color: C.mint  },
-          { type: 'MEDIA_CONSENT',        icon: <Camera         size={14} color="#fff" />, label: de ? 'Medienrechte'        : 'Media',           color: C.iris  },
-          { type: 'ATTENDANCE',           icon: <ClipboardCheck size={14} color="#fff" />, label: de ? 'Anwesenheit'         : 'Attendance',      color: C.mint  },
-          { type: 'SICK_NOTE',            icon: <Stethoscope    size={14} color="#fff" />, label: de ? 'Krankmeldungen'      : 'Sick notes',      color: C.rose  },
-          { type: 'CV',                   icon: <File           size={14} color="#fff" />, label: de ? 'Lebensläufe'         : 'CVs',             color: C.amber },
-          { type: 'CERTIFICATE',          icon: <Award          size={14} color="#fff" />, label: de ? 'Zertifikate'         : 'Certificates',    color: C.mint  },
-          { type: 'DIARY_ENTRY',          icon: <BookMarked     size={14} color="#fff" />, label: de ? 'Bewerbungstagebuch'  : 'Job diary (#9)',  color: C.iris  },
-          { type: 'PARTICIPANT_RECORD',   icon: <BookOpen       size={14} color="#fff" />, label: de ? 'Coaching'            : 'Coaching',        color: C.iris  },
-          { type: 'ENROLLMENT_STATUS',    icon: <UserX          size={14} color="#fff" />, label: de ? 'Nicht-Antritt (#17)' : 'No-show (#17)',   color: C.rose  },
-          { type: 'SURVEY',               icon: <BarChart2      size={14} color="#fff" />, label: de ? 'Befragungen'         : 'Surveys',         color: C.iris  },
-          { type: 'EVALUATION',           icon: <Star           size={14} color="#fff" />, label: de ? 'Bewertungen'         : 'Evaluations',     color: C.amber },
-          { type: 'PLACEMENT',            icon: <MapPin         size={14} color="#fff" />, label: de ? 'Verbleib'            : 'Placement',       color: C.mint  },
-          { type: 'COURSE_RECORD',        icon: <Briefcase      size={14} color="#fff" />, label: de ? 'Unterricht'          : 'Teaching',        color: C.iris  },
-          { type: 'COURSE_EVAL',          icon: <GraduationCap  size={14} color="#fff" />, label: de ? 'Maßnahmenbew.'       : 'Course eval',     color: C.mint  },
-          { type: 'QM_DOC',               icon: <ScrollText     size={14} color="#fff" />, label: de ? 'QM-Dokumente'        : 'QM documents',    color: C.iris  },
+          { type: 'PARTICIPANT_CONTRACT', icon: <FileText       size={14} />, label: de ? 'Verträge'            : 'Contracts',       color: C.iris  },
+          { type: 'EQUIPMENT_LOAN',       icon: <Laptop         size={14} />, label: de ? 'Geräte'              : 'Equipment',       color: C.amber },
+          { type: 'PRIVACY_CONSENT',      icon: <Shield         size={14} />, label: de ? 'Datenschutz'         : 'Privacy',         color: C.mint  },
+          { type: 'MEDIA_CONSENT',        icon: <Camera         size={14} />, label: de ? 'Medienrechte'        : 'Media',           color: C.iris  },
+          { type: 'ATTENDANCE',           icon: <ClipboardCheck size={14} />, label: de ? 'Anwesenheit'         : 'Attendance',      color: C.mint  },
+          { type: 'SICK_NOTE',            icon: <Stethoscope    size={14} />, label: de ? 'Krankmeldungen'      : 'Sick notes',      color: C.rose  },
+          { type: 'CV',                   icon: <File           size={14} />, label: de ? 'Lebensläufe'         : 'CVs',             color: C.amber },
+          { type: 'CERTIFICATE',          icon: <Award          size={14} />, label: de ? 'Zertifikate'         : 'Certificates',    color: C.mint  },
+          { type: 'DIARY_ENTRY',          icon: <BookMarked     size={14} />, label: de ? 'Bewerbungstagebuch'  : 'Job diary',       color: C.iris  },
+          { type: 'PARTICIPANT_RECORD',   icon: <BookOpen       size={14} />, label: de ? 'Coaching'            : 'Coaching',        color: C.iris  },
+          { type: 'ENROLLMENT_STATUS',    icon: <UserX          size={14} />, label: de ? 'Nicht-Antritt'       : 'No-show',         color: C.rose  },
+          { type: 'SURVEY',               icon: <BarChart2      size={14} />, label: de ? 'Befragungen'         : 'Surveys',         color: C.iris  },
+          { type: 'EVALUATION',           icon: <Star           size={14} />, label: de ? 'Bewertungen'         : 'Evaluations',     color: C.amber },
+          { type: 'PLACEMENT',            icon: <MapPin         size={14} />, label: de ? 'Verbleib'            : 'Placement',       color: C.mint  },
+          { type: 'COURSE_RECORD',        icon: <Briefcase      size={14} />, label: de ? 'Unterricht'          : 'Teaching',        color: C.iris  },
+          { type: 'COURSE_EVAL',          icon: <GraduationCap  size={14} />, label: de ? 'Maßnahmenbew.'       : 'Course eval',     color: C.mint  },
+          { type: 'QM_DOC',               icon: <ScrollText     size={14} />, label: de ? 'QM-Dokumente'        : 'QM documents',    color: C.iris  },
         ].map((cat) => {
           const count         = allDocs.filter((d) => d.type === cat.type).length;
           const completeCount = allDocs.filter((d) => d.type === cat.type && d.status === 'doc_ready').length;
           const missingCount  = count - completeCount;
           const isActive      = filterType === cat.type;
           return (
-            <div key={cat.type} className="card"
-              onClick={() => { setFilterType(cat.type); setCatModal(true); }}
+            <div key={cat.type}
+              onClick={() => { setFilterType(isActive ? '' : cat.type); setCatModal(true); }}
               style={{
-                cursor: 'pointer', padding: '11px 10px',
-                border: `2px solid ${isActive ? cat.color : C.line}`,
-                background: isActive ? cat.color + '0D' : '#fff',
-                transition: 'all .2s',
-              }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 7, background: cat.color, display: 'grid', placeItems: 'center' }}>
-                  {cat.icon}
-                </div>
-                {isActive && (
-                  <span style={{ fontSize: 9, fontWeight: 700, color: cat.color, background: cat.color + '18', padding: '2px 5px', borderRadius: 20 }}>
-                    {de ? 'Aktiv' : 'Active'}
+                display: 'flex', alignItems: 'center', gap: 12, padding: '9px 14px',
+                borderRadius: 8, cursor: 'pointer', transition: 'background .15s',
+                background: isActive ? cat.color + '12' : 'transparent',
+                border: '1px solid ' + (isActive ? cat.color + '40' : '#F1F5F9'),
+              }}
+            >
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: cat.color, display: 'grid', placeItems: 'center', flexShrink: 0, color: '#fff' }}>
+                {cat.icon}
+              </div>
+              <div style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 700 : 500, color: isActive ? cat.color : '#334155' }}>
+                {cat.label}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: cat.color }}>{count}</span>
+                {count > 0 && (
+                  <span style={{ fontSize: 11, color: C.mint, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <CheckCircle2 size={10} /> {completeCount}
                   </span>
                 )}
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: cat.color, lineHeight: 1 }}>{count}</div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: '#334155', marginTop: 3, lineHeight: 1.3 }}>{cat.label}</div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                <span style={{ fontSize: 9, color: C.mint, display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <CheckCircle2 size={9} /> {completeCount}
-                </span>
-                <span style={{ fontSize: 9, color: C.rose, display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Circle size={9} /> {missingCount}
-                </span>
+                {missingCount > 0 && (
+                  <span style={{ fontSize: 11, color: C.rose, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Circle size={10} /> {missingCount}
+                  </span>
+                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* ===== INLINE FILTERED DOCS ===== */}
-      {filterType && (
-        <div className="card" style={{ padding: '14px 8px 8px' }}>
-          <div className="card-head" style={{ padding: '0 13px 10px' }}>
-            <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <FileText size={14} color={C.iris} />
-              {typeLabel(filterType)} &middot; {allDocs.filter(d => d.type === filterType).length}
-            </div>
-            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 12 }}
-              onClick={() => setFilterType('')}>
-              <X size={15} />
-            </button>
-          </div>
-          {allDocs.filter(d => d.type === filterType).length === 0 ? (
-            <div style={{ padding: '10px 14px 14px', color: C.muted, fontSize: 13 }}>
-              {de ? 'Keine Dokumente vorhanden.' : 'No documents yet.'}
-            </div>
-          ) : (
-            <div style={{ padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {allDocs.filter(d => d.type === filterType).map((d, i) => {
-                const part = participants.find(p => p.id === d.participantId);
-                return (
-                  <div key={d.id ?? i} onClick={() => setSelDoc(d)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-                      borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', cursor: 'pointer' }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                      background: d.status === 'doc_ready' ? '#0FB6A0' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#F59E0B' : '#F4475F' }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{part?.name ?? d.participantId ?? '-'}</div>
-                      {d.notes && <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 1 }}>{d.notes}</div>}
-                    </div>
-                    <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600,
-                      background: d.status === 'doc_ready' ? '#E1F5EE' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#FAEEDA' : '#FCEBEB',
-                      color: d.status === 'doc_ready' ? '#085041' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#633806' : '#501313' }}>
-                      {STATUS_MAP[d.status] ? STATUS_MAP[d.status][lang] : (d.status ?? '')}
-                    </span>
-                    <ChevronRight size={14} color="#CBD5E1" />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-            {/* ===== MINI STATS ===== */}
+      {/* ===== MINI STATS ===== */}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
         {[
           [de ? 'Gesamt' : 'Total',          allDocs.length, C.iris],
@@ -1663,13 +1621,37 @@ export default function DocumentModel() {
           <div onClick={(e) => e.stopPropagation()} className='card' style={{ width: '100%', maxWidth: 520, maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px', borderBottom: '1px solid #E2E8F0' }}>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{typeLabel(filterType)}</div>
-              <button onClick={() => setCatModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={18} /></button>
+              <button onClick={() => {
+                const catDocs = allDocs.filter(d => d.type === filterType);
+                const rows = catDocs.map(d => ({
+                  [de ? 'Teilnehmer' : 'Participant']: participants.find(p => p.id === d.participantId)?.name ?? '-',
+                  [de ? 'Typ' : 'Type']: typeLabel(d.type),
+                  [de ? 'Status' : 'Status']: d.status ?? '',
+                  [de ? 'Datei' : 'File']: d.fileRef ?? '',
+                }));
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, typeLabel(filterType));
+                XLSX.writeFile(wb, typeLabel(filterType) + '.xlsx');
+              }} className="btn btn-ghost" style={{ padding: '6px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Download size={13} />{de ? 'Exportieren' : 'Export'}
+              </button>
+              <button onClick={() => { setCatModal(false); setCatSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={18} /></button>
+            </div>
+            <div style={{ padding: '8px 14px', borderBottom: '1px solid #F1F5F9' }}>
+              <input
+                value={catSearch}
+                onChange={(e) => setCatSearch(e.target.value)}
+                placeholder={de ? 'Suchen...' : 'Search...'}
+                style={{ width: '100%', padding: '7px 11px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12.5, outline: 'none', boxSizing: 'border-box' }}
+                autoFocus
+              />
             </div>
             <div style={{ overflowY: 'auto', padding: '10px 14px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {allDocs.filter(d => d.type === filterType).length === 0 && (
+              {allDocs.filter(d => d.type === filterType && (!catSearch || (participants.find(p => p.id === d.participantId)?.name ?? '').toLowerCase().includes(catSearch.toLowerCase()) || typeLabel(d.type).toLowerCase().includes(catSearch.toLowerCase()))).length === 0 && (
                 <div style={{ padding: 20, color: C.muted, fontSize: 13, textAlign: 'center' }}>{de ? 'Keine Dokumente.' : 'No documents yet.'}</div>
               )}
-              {allDocs.filter(d => d.type === filterType).map((d, i) => {
+              {allDocs.filter(d => d.type === filterType && (!catSearch || (participants.find(p => p.id === d.participantId)?.name ?? '').toLowerCase().includes(catSearch.toLowerCase()) || typeLabel(d.type).toLowerCase().includes(catSearch.toLowerCase()))).map((d, i) => {
                 const part = participants.find(p => p.id === d.participantId);
                 return (
                   <div key={d.id ?? i} onClick={() => { setCatModal(false); setSelDoc(d); }}
@@ -1678,7 +1660,7 @@ export default function DocumentModel() {
                     <div style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0,
                       background: d.status === 'doc_ready' ? '#0FB6A0' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#F59E0B' : '#F4475F' }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{part ? part.name : '—'}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{d._isQmDoc ? (de ? (d._qm?.titleDe ?? d._qm?.title ?? '-') : (d._qm?.title ?? d._qm?.titleDe ?? '-')) : d._isCourseRec ? (d._cr?.topic ?? d._cr?.trainer ?? d._cr?.recordDate ?? (de ? 'Unterrichtseinheit' : 'Teaching unit')) : d._isCourseEval ? (d._ce?.period ?? (de ? 'Kursbewertung' : 'Course eval')) : part ? part.name : d.responsible ?? '-'}</div>
                       <div style={{ fontSize: 11, color: '#94A3B8' }}>{part ? part.contact : ''}</div>
                     </div>
                     <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, fontWeight: 600,
@@ -1686,6 +1668,7 @@ export default function DocumentModel() {
                       color: d.status === 'doc_ready' ? '#085041' : d.status === 'doc_partial' || d.status === 'doc_manual' ? '#633806' : '#501313' }}>
                       {STATUS_MAP[d.status] ? STATUS_MAP[d.status][lang] : d.status}
                     </span>
+                    <button onClick={(e) => { e.stopPropagation(); const rows = [{ Participant: part ? part.name : '-', Type: typeLabel(d.type), Status: d.status ?? '', Contact: part ? part.contact : '' }]; const ws = XLSX.utils.json_to_sheet(rows); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Export'); XLSX.writeFile(wb, (part ? part.name : 'doc') + '.xlsx'); }} style={{ background: 'none', border: '1px solid #E2E8F0', borderRadius: 7, padding: '4px 8px', cursor: 'pointer', color: '#6D5DF6', display: 'flex', alignItems: 'center', flexShrink: 0 }}><Download size={12} /></button>
                   </div>
                 );
               })}

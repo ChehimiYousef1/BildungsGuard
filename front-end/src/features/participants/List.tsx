@@ -42,6 +42,8 @@ export default function Participants() {
     fileCompleteness: '0', status: 'enrolled',
     password: '',
   });
+  const [filterMeasure, setFilterMeasure] = useState('');
+  const [filterIncomplete, setFilterIncomplete] = useState(() => { const f = localStorage.getItem('parts_filter_incomplete'); if (f) { localStorage.removeItem('parts_filter_incomplete'); return true; } return false; });
 
   const load = async () => {
     try {
@@ -52,7 +54,10 @@ export default function Participants() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api('/measures').then((d: any) => setBootcamps(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
 
   const ensureBootcamps = async () => {
     if (Bootcamps.length === 0) {
@@ -181,7 +186,7 @@ export default function Participants() {
 
   // ===== EXPORT EXCEL =====
   const exportExcel = () => {
-    const data = rows.map((p) => ({
+    const data = filteredRows.map((p) => ({
       [de ? 'Name'           : 'Name']:     p.name ?? '',
       [de ? 'E-Mail'         : 'Email']:    p.contact ?? '',
       [de ? 'Telefon'        : 'Phone']:    p.phone ?? '',
@@ -257,6 +262,8 @@ export default function Participants() {
 
   if (sel !== null) return <Akte t0={rows[sel]} back={() => setSel(null)} />;
 
+  const filteredRows = filterMeasure ? rows.filter((p) => (p.measureId ?? p.measure?.id) === filterMeasure) : rows;
+
   return (
     <div className="card" style={{ padding: '19px 8px 8px' }}>
       <div className="card-head" style={{ padding: '0 13px' }}>
@@ -275,6 +282,21 @@ export default function Participants() {
             <Plus size={15} /> {t('enroll')}
           </button>
         </div>
+      </div>
+
+      {/* BOOTCAMP FILTER */}
+      <div style={{ display: 'flex', gap: 8, padding: '0 13px 12px', alignItems: 'center' }}>
+        <select value={filterMeasure} onChange={(e) => setFilterMeasure(e.target.value)}
+          style={{ padding: '7px 11px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12.5, outline: 'none', cursor: 'pointer', minWidth: 190 }}>
+          <option value=""> All Bootcamps </option>
+          {Bootcamps.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+        {filterMeasure && (
+          <button onClick={() => setFilterMeasure('')}
+            style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E2E8F0', background: 'none', cursor: 'pointer', fontSize: 12 }}>
+            × Clear
+          </button>
+        )}
       </div>
 
       {loading && <div style={{ padding: 20, color: C.muted, fontSize: 13 }}>...</div>}
@@ -297,7 +319,7 @@ export default function Participants() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((p, i) => {
+              {filteredRows.map((p, i) => {
                 const file     = p.fileCompleteness ?? p.akte ?? 0;
                 const bootcamp = translateText(p.measure?.name ?? p.Bootcamp?.name ?? p.m ?? '', lang) || '—';
                 const funding  = p.fundingType ?? p.fund ?? '—';

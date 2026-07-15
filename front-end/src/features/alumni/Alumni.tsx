@@ -1,9 +1,10 @@
-﻿import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { translateText } from '../../lib/translateName';
 import {
   Users, CheckCircle2, X, Briefcase,
   Building2, Mail, ChevronRight, Award,
-  Phone, RefreshCw, Pencil
+  Phone, RefreshCw, Pencil, Download,
 } from 'lucide-react';
 import { C } from '../../theme/tokens';
 import { useApp } from '../../context/AppContext';
@@ -24,6 +25,7 @@ export default function Alumni() {
   const { lang } = useApp();
   const de = lang === 'de';
 
+  const [measures,      setMeasures]      = useState<any[]>([]);
   const [alumni,        setAlumni]        = useState<any[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState<string | null>(null);
@@ -34,8 +36,10 @@ export default function Alumni() {
   const [editing,     setEditing]     = useState(false);
   const [editForm,    setEditForm]    = useState<any>({});
   const [editSaving,  setEditSaving]  = useState(false);
-
+  const [filterMeasure, setFilterMeasure] = useState('');
+  
   const load = async () => {
+    console.log('[Alumni] loading...');
     setLoading(true);
     setError(null);
     try {
@@ -48,9 +52,11 @@ export default function Alumni() {
       const partList      = Array.isArray(parts)      ? parts      : [];
       const placementList = Array.isArray(placements)  ? placements : [];
       const measureList   = Array.isArray(measures)    ? measures   : [];
+      setMeasures(measureList);
+      console.log('[measures]', measureList.map((m) => ({id: m.id, name: m.name})));
 
       const completed = partList.filter((p) =>
-        p.status === 'completed' || p.status === 'abgeschlossen'
+        p.status === 'completed' || p.status === 'abgeschlossen' || p.status === 'dropped'
       );
 
       const list = completed.map((p) => {
@@ -67,6 +73,7 @@ export default function Alumni() {
 
         return {
           id:       p.id,
+          measureId: p.measureId ?? measure?.id ?? null,
           name:     p.name     ?? '—',
           c:        p.c,
           email:    p.email    ?? p.contact ?? '—',
@@ -85,8 +92,12 @@ export default function Alumni() {
       });
 
       setAlumni(list);
+      console.log('[m fields]', list.slice(0,3).map((a) => a.name + ':' + a.m));
+      console.log('[alumni m fields]', list.map((a) => ({ name: a.name, m: a.m, measureId: a.measureId })));
+      console.log('[alumni sample]', list[0]);
     } catch (e: any) {
       setError(e?.message || 'Failed to load alumni');
+      console.error('[Alumni] load FAILED:', e);
       setAlumni([]);
     } finally { setLoading(false); }
   };
@@ -161,6 +172,26 @@ export default function Alumni() {
 
   const filtered = alumni.filter((a) => !filterOutcome || a.outcome === filterOutcome);
 
+
+  const filteredAlumni = alumni.filter((a: any) => {
+    if (filterMeasure && a.measureId !== filterMeasure) return false;
+    if (filterOutcome && a.outcome !== filterOutcome) return false;
+    return true;
+  });
+  const bootcampNames = useMemo(() => measures.filter((m: any) => m.name), [measures]);
+
+  const exportExcel = () => {
+    const rows = filteredAlumni.map((a: any) => ({
+      Name: a.name ?? '', Bootcamp: a.measure ?? a.m ?? '',
+      Outcome: a.outcome ?? '', Employer: a.employer ?? '',
+      Email: a.contact ?? '', Phone: a.phone ?? '',
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Alumni');
+    XLSX.writeFile(wb, 'alumni_' + (filterMeasure || 'all') + '.xlsx');
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
@@ -170,7 +201,7 @@ export default function Alumni() {
           [de ? 'Alumni gesamt'    : 'Total alumni',  total,    C.iris],
           [de ? 'In Beschäftigung': 'Employed',       employed, C.mint],
           [de ? 'Arbeitssuchend'  : 'Job-seeking',    seeking,  C.amber],
-          [de ? '6M Follow-up'    : '6M Follow-up',   follow6,  C.iris],
+          [de ? '6m Follow-up'    : '6m Follow-up',   follow6,  C.iris],
         ].map(([label, val, col]: any, i) => (
           <div key={i} className="card" style={{ padding: '12px 14px' }}>
             <div style={{ fontSize: 22, fontWeight: 900, color: col }}>{val}</div>
@@ -205,21 +236,7 @@ export default function Alumni() {
             {de ? 'Absolventen' : 'Alumni'} · {filtered.length}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <select
-              value={filterOutcome}
-              onChange={(e) => setFilterOutcome(e.target.value)}
-              style={{ padding: '7px 11px', borderRadius: 9, border: `1px solid ${C.line}`, fontSize: 12.5, outline: 'none', cursor: 'pointer' }}
-            >
-              <option value="">{de ? '— Alle —' : '— All —'}</option>
-              {Object.entries(OUTCOME_LABELS).map(([key, val]) => (
-                <option key={key} value={key}>{de ? val.de : val.en}</option>
-              ))}
-            </select>
-            <button className="btn btn-ghost" style={{ padding: '7px 10px' }} onClick={load}
-              title={de ? 'Aktualisieren' : 'Refresh'}>
-              <RefreshCw size={14} color={C.muted} />
-            </button>
-          </div>
+            </div>
         </div>
 
         {loading && <div style={{ padding: '0 13px 20px', color: C.muted, fontSize: 13 }}>…</div>}
@@ -242,7 +259,43 @@ export default function Alumni() {
 
         {!loading && !error && filtered.length > 0 && (
           <div className="scroll-x">
-            <table>
+            
+        {/* ===== BOOTCAMP FILTER + EXPORT ===== */}
+        <div style={{ display: 'flex', gap: 8, padding: '0 0 12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <select value={filterMeasure} onChange={(e) => setFilterMeasure(e.target.value)}
+            style={{ padding: '7px 11px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12.5, outline: 'none', cursor: 'pointer', minWidth: 190 }}>
+            <option value="">All Bootcamps </option>
+            {bootcampNames.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+          <select value={filterOutcome} onChange={(e) => setFilterOutcome(e.target.value)}
+            style={{ padding: '7px 11px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12.5, outline: 'none', cursor: 'pointer', minWidth: 150 }}>
+            <option value=""> All Status </option>
+            <option value="employed">Employed</option>
+            <option value="job_seeking">Job-seeking</option>
+            <option value="education">In education</option>
+            <option value="training">In training</option>
+            <option value="other">Other</option>
+            <option value="unknown">Unknown</option>
+          </select>
+
+          <button className="btn btn-ghost" style={{ padding: '7px 10px', display: 'flex', alignItems: 'center' }} onClick={load}
+            title={de ? 'Aktualisieren' : 'Refresh'}>
+            <RefreshCw size={14} color={C.muted} />
+          </button>
+
+          {filterMeasure && (
+            <button onClick={() => { setFilterMeasure(''); setFilterOutcome(''); }}
+              style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #E2E8F0', background: 'none', cursor: 'pointer', fontSize: 12 }}>
+              × Clear
+            </button>
+          )}
+          <button onClick={exportExcel} disabled={filteredAlumni.length === 0}
+            className='btn btn-ghost' style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', fontSize: 12.5 }}>
+            <Download size={14} /> Export Excel {filterMeasure ? '(' + filteredAlumni.length + ')' : '(' + alumni.length + ')'}
+          </button>
+        </div>
+
+        <table>
               <thead>
                 <tr>
                   <th>{de ? 'Name' : 'Name'}</th>
@@ -256,7 +309,7 @@ export default function Alumni() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((a, i) => {
+                {filteredAlumni.map((a, i) => {
                   const oc = OUTCOME_LABELS[a.outcome] ?? OUTCOME_LABELS['unknown'];
                   return (
                     <tr key={a.id ?? i} className="row" style={{ cursor: 'pointer' }}
@@ -272,7 +325,7 @@ export default function Alumni() {
                           </div>
                         </div>
                       </td>
-                      <td style={{ fontSize: 12.5 }}>{a.m}</td>
+                      <td style={{ fontSize: 12.5, color: C.inkSoft }}>{a.m || '-'}</td>
                       <td style={{ fontSize: 12, color: C.muted }}>{a.grad}</td>
                       <td>
                         <span className="badge" style={{ background: oc.color + '18', color: oc.color, fontSize: 11 }}>

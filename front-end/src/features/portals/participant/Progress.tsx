@@ -37,7 +37,7 @@ export default function PaProgress() {
       try {
         const [s, c, lp, att] = await Promise.all([
           api<any[]>(`/surveys?participantId=${me.id}`).catch(() => []),
-          api<any[]>('/courses').catch(() => []),
+          api<any[]>(me.measureId ? '/courses?measureId=' + me.measureId : '/courses').catch(() => []),
           api<any[]>(`/lesson-progress?participantId=${me.id}`).catch(() => []),
           api<any[]>(`/attendance/participant/${me.id}`).catch(() => []),
         ]);
@@ -49,6 +49,15 @@ export default function PaProgress() {
       finally { setLoading(false); }
     })();
   }, [me?.id, meLoading]);
+
+  // Reload grades after quiz completion
+  useEffect(() => {
+    const flag = localStorage.getItem('quiz_grade_updated');
+    if (!flag || !me?.id) return;
+    localStorage.removeItem('quiz_grade_updated');
+    api('/surveys?participantId=' + me.id).catch(() => [])
+      .then((s: any) => setGrades((Array.isArray(s) ? s : []).filter((x: any) => x.type === 'test')));
+  }, [me?.id]);
 
   const pct = (score?: string) => {
     if (score && typeof score === 'string' && score.includes('/')) {
@@ -69,11 +78,15 @@ export default function PaProgress() {
   const attPct = totalAtt > 0 ? Math.round((presentAtt / totalAtt) * 100) : null;
 
   // Assignments + Grades
-  const gradedAssignments = assignments.map((a) => {
-    const g = grades.find((gr) => gr.title === a.title) ?? null;
-    const p = g?.score ? pct(g.score) : null;
-    return { ...a, grade: g, pct: p, passed: p !== null && p >= PASS_MARK };
-  });
+  // Show all actual grades from surveys
+  const gradedAssignments = grades.map((g) => ({
+    id: g.id,
+    title: g.title ?? 'Exam',
+    maxScore: 100,
+    grade: g,
+    pct: pct(g.score),
+    passed: pct(g.score) !== null && (pct(g.score) ?? 0) >= PASS_MARK,
+  }));
 
   const scoredList = gradedAssignments.filter((a) => a.pct !== null);
   const total = scoredList.length > 0

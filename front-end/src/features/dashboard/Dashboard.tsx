@@ -178,7 +178,8 @@ export default function Dashboard() {
                 </div>
               )}
               {clearItems.map((item, i) => (
-                <div key={i} onClick={() => { if (item.view) setView(item.view); }}
+                <div key={i} onClick={() => { if (item.view) { if (item.view === 'qm' && item.label?.toLowerCase().includes('capa')) { localStorage.setItem('qm_init_tab', 'capa'); } if (item.view === 'docs' && item.label?.toLowerCase().includes('missing')) { localStorage.setItem('docs_init_filter', 'missing'); } if (item.view === 'participants' && item.label?.toLowerCase().includes('incomplete')) { localStorage.setItem('parts_filter_incomplete', '1'); }
+              if (item.view === 'participants' && item.label?.toLowerCase().includes('incomplete')) { setView('participants'); return; } setView(item.view); } }}
                   style={{ display: 'flex', gap: 11, alignItems: 'center', padding: '11px 0', borderTop: (i || tasks.length) ? `1px solid ${C.lineSoft}` : 'none', cursor: item.view ? 'pointer' : 'default' }}>
                   <div style={{ width: 9, height: 9, borderRadius: 50, background: item.color, flexShrink: 0 }} />
                   <div style={{ flex: 1, fontWeight: 600, fontSize: 12.5 }}>{item.label}</div>

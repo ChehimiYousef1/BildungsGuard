@@ -39,7 +39,7 @@ export const de = {
     no_certs: 'Noch keine Zertifikate', no_certs_d: 'Dein AZAV-Abschlusszertifikat erscheint hier automatisch, sobald die Maßnahme erfolgreich abgeschlossen ist.',
     ai_intro: 'Hallo! Ich kenne den aktuellen Stand deines Trägers und kann Aufgaben für dich erledigen — öffnen, Akten vervollständigen, CAPA anlegen, Stichprobe ziehen. Frag mich oder wähle:',
     ai_ph: 'Frag Aino oder gib einen Auftrag…', ai_done: 'Erledigt', ai_run: 'Ausführen',
-    n_alumni: 'Absolventen', n_comms: 'Kommunikation', n_settings: 'Einstellungen',
+    n_alumni: 'Absolventen', n_comms: 'Kommunikation', n_support: 'Support & Feedback', n_settings: 'Einstellungen',
     login_h: 'Willkommen zurück', login_sub: 'Wähle dein Portal und melde dich an', sign_in: 'Anmelden', login_demo: 'Demo · beliebige Zugangsdaten funktionieren',
     login_admin_d: 'Teilnehmer, Maßnahmen, QM, Audit & Marketing — die volle Steuerung.',
     login_trainer_d: 'Sitzungen, Anwesenheit und Bewertungen für deine Kurse.',
